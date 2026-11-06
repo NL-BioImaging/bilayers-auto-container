@@ -175,10 +175,10 @@ def _run(spec, values, tool, final_outputs, work, settings) -> None:
             results = work / "results" / folder.name if fair else final
             conversion.finalize_output(folder, results, target, settings["zarr_format"])
         if fair:
-            from .fair import write_ro_crate
+            from .fair import run_parameters, write_ro_crate
 
             write_ro_crate(spec.path, input_paths, sorted(results.iterdir()) if results.is_dir() else [], final,
-                           copy_inputs=settings["ro_crate_input"] == "copy")
+                           copy_inputs=settings["ro_crate_input"] == "copy", parameters=run_parameters(spec, values))
 
     if settings["zip_output"]:
         from .fair import zip_folder

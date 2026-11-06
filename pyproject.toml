@@ -15,7 +15,7 @@ dependencies = [
     # not on PyPI
     "bilayers-schema @ git+https://github.com/bilayer-containers/bilayers-schema.git",
     "biomero-converter>=0.2.1",
-    "fair-metadata-integration>=0.7.0",
+    "fair-metadata-integration>=0.9.1",
 ]
 
 [project.optional-dependencies]

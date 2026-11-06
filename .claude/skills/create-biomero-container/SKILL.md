@@ -25,7 +25,8 @@ only replaces "run the tool". Do not reimplement or skip any of them in `wrapper
 4. Convert the tool's output images back to OME-Zarr if needed (biomero-converter).
 5. FAIRification: fair-metadata-integration's `create_ro_crate` makes the output folder a
    Workflow RO-Crate: `ro-crate-metadata.json`, `config.yaml` as the workflow (mainEntity,
-   language Bilayers), the outputs and the input as FormalParameters with EDAM formats.
+   language Bilayers), the run's values in `parameters.yaml` (each under its entry's
+   `section_id`, as the config has it), and the input and outputs with EDAM formats.
 6. Optionally zip the whole output folder, stored without compression, as one file
    (`BIOMERO_ZIP_OUTPUT=true`, or `run(..., zip_output=True)` in `wrapper.py`).
 

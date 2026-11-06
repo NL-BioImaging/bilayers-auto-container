@@ -3,6 +3,7 @@ import zipfile
 
 import pytest
 import tifffile
+import yaml
 
 from biomero_auto import BilayersSpec, run
 from biomero_auto.conversion import find_images, output_target
@@ -16,8 +17,12 @@ def spec(config_path, python_cli_command):
     return spec
 
 
+@pytest.mark.filterwarnings("error::UserWarning:fair_metadata_integration")
 def test_zarr_in_zarr_out_with_ro_crate(spec, config_path, zarr_folder):
-    """BIOMERO gives OME-Zarr; the TIFF tool runs on converted input; OME-Zarr labels come back."""
+    """BIOMERO gives OME-Zarr; the TIFF tool runs on converted input; OME-Zarr labels come back.
+
+    The run's values are in parameters.yaml under their sections, as the config has them, so the crate
+    raises no warning about values the workflow lacks."""
     data_path = zarr_folder.parents[1]
     argv = biomero_argv(config_path, data_path, threshold_method="otsu", min_diameter=1, max_diameter=50)
     assert run(argv, spec=spec) == 0
@@ -29,6 +34,11 @@ def test_zarr_in_zarr_out_with_ro_crate(spec, config_path, zarr_folder):
     assert {config_path.name, "blobs_output.ome.zarr", input_uri} <= ids
     for entity_id in (config_path.name, "blobs_output.ome.zarr"):
         assert (out / entity_id).exists(), f"{entity_id} not in the crate"
+    entities = {entity["@id"]: entity for entity in crate["@graph"]}
+    assert entities["parameters.yaml"]["about"] == {"@id": "#run"}
+    values = yaml.safe_load((out / "parameters.yaml").read_text())
+    assert values["input-args"] == {"threshold_method": "otsu", "min_diameter": 1, "max_diameter": 50}
+    assert set(values) == {"input-args", "output-args"}
     # the input is referenced, not copied: BIOMERO would import it again from data/out
     assert not (out / "in").exists()
     assert not list(data_path.glob("data/biomero-work-*"))  # staging removed

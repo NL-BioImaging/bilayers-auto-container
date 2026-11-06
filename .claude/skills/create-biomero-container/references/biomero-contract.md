@@ -35,7 +35,8 @@ repository's `config.yaml` directly at the configured tag. It looks for `descrip
 4. Converts outputs (`BIOMERO_OUTPUT_FORMAT`: `auto` gives OME-Zarr back when OME-Zarr came
    in and the tool writes TIFF; `zarr`, `tiff`, `keep`).
 5. FAIRification: `create_ro_crate` (fair-metadata-integration) writes the Workflow RO-Crate
-   into `data/out`: `ro-crate-metadata.json`, the config and the outputs; the input is
+   into `data/out`: `ro-crate-metadata.json`, the config, the run's values (`parameters.yaml`,
+   by the config's sections) and the outputs; the input is
    described in it (`BIOMERO_RO_CRATE_INPUT=reference`, default) or copied (`copy`).
 6. With `BIOMERO_ZIP_OUTPUT=true` (default `false`): replaces the contents of `data/out` by
    `<algorithm_folder_name>.zip`, stored (no compression).

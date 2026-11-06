@@ -39,7 +39,8 @@ to TIFF for it and its TIFF labels back to OME-Zarr.
    (`biaflows.py`); or any `tool(ctx)` function.
 4. **Converts outputs** back (`auto`: OME-Zarr in → OME-Zarr out).
 5. **FAIRifies the output folder** (`fair.py`): fair-metadata-integration makes it a Workflow RO-Crate
-   (`ro-crate-metadata.json`, the config, the outputs; the input is referenced by its `file://` URI, not copied).
+   (`ro-crate-metadata.json`, the config, the run's values in `parameters.yaml`, the outputs; the input is
+   referenced by its `file://` URI, not copied).
 6. **Optionally zips it**, stored without compression (`BIOMERO_ZIP_OUTPUT=true`).
 
 The defaults match BIOMERO: it zips `data/out` itself and imports every image found in it, so the
