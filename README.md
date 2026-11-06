@@ -104,3 +104,15 @@ pushes the image (secrets `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`). Register in 
 <key>_repo=https://github.com/<org>/<repo>/tree/vX.Y.Z
 <key>_image=<docker org>/<docker name>
 ```
+
+## Use of AI
+
+Generative AI coding assistants were used in developing this software, including tests and documentation.
+All changes are directed and approved by a maintainer, and checked by automated tests where applicable.
+
+## License
+
+[Apache-2.0]
+
+
+[Apache-2.0]: http://opensource.org/licenses/Apache-2.0
