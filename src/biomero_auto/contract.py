@@ -36,11 +36,12 @@ def biomero_argv(config: Path, data_path: PurePath, **user_params) -> list[str]:
     return shlex.split(line)
 
 
-def add_omero_metadata(store: Path) -> None:
+def add_omero_metadata(store: Path, channels: int = 1) -> None:
     """Add the omero rendering block OMERO exports include to an OME-Zarr store."""
     attrs_path = store / ".zattrs"
     attrs = json.loads(attrs_path.read_text())
-    attrs["omero"] = OMERO_METADATA
+    [channel] = OMERO_METADATA["channels"]
+    attrs["omero"] = {**OMERO_METADATA, "channels": [{**channel, "label": f"c{index}"} for index in range(channels)]}
     attrs_path.write_text(json.dumps(attrs))
 
 

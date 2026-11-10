@@ -13,6 +13,7 @@ from pathlib import Path
 import yaml
 
 from . import biaflows
+from .sample_data import DTYPES, Synthetic
 from .spec import BilayersSpec, SpecError, validate_config
 
 
@@ -44,6 +45,25 @@ def _biomero_check(config: str) -> list[str]:
     return []
 
 
+def _synthetic_options(parser, prefix: str = "") -> None:
+    """Options describing synthetic images (``prefix`` keeps them apart from other options)."""
+    group = parser.add_argument_group("synthetic images")
+    group.add_argument(f"--{prefix}size", type=int, default=64, help="Y and X size (default 64)")
+    group.add_argument(f"--{prefix}z", type=int, default=1, help="Z planes; > 1 gives 3D objects")
+    group.add_argument(f"--{prefix}t", type=int, default=1, help="time points")
+    group.add_argument(f"--{prefix}channels", type=int, default=1)
+    group.add_argument(f"--{prefix}objects", type=int, default=2, help="objects per image")
+    group.add_argument(f"--{prefix}radius", type=int, default=6, help="mean object radius in pixels")
+    group.add_argument(f"--{prefix}noise", type=float, default=0.0, help="Gaussian noise standard deviation")
+    group.add_argument(f"--{prefix}dtype", choices=DTYPES, default="uint16")
+
+
+def _synthetic_spec(args, prefix: str = "") -> Synthetic:
+    value = lambda name: getattr(args, prefix.replace("-", "_") + name)  # noqa: E731
+    return Synthetic(size=value("size"), z=value("z"), t=value("t"), channels=value("channels"),
+                     objects=value("objects"), radius=value("radius"), noise=value("noise"), dtype=value("dtype"))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="biomero-auto", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -73,6 +93,27 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--param", action="append", default=[], metavar="NAME=VALUE", help="parameter value (repeatable)")
     check.add_argument("--no-build", action="store_true", help="use the already built image")
     check.add_argument("--keep", help="job folder to use and keep (default: a new temporary folder)")
+    check.add_argument("--expected", help="folder of expected outputs to compare the outputs with")
+    check.add_argument("--synthetic", action="store_true",
+                       help="use synthetic images as input; their labels are the expected output unless --expected")
+    check.add_argument("--min-dice", type=float, default=0.9, help="minimum foreground Dice for label images")
+    check.add_argument("--rtol", type=float, default=1e-3, help="relative tolerance for intensities and numbers")
+    _synthetic_options(check, prefix="synthetic-")
+
+    synthetic = commands.add_parser("synthetic", help="write synthetic input images and their ground-truth labels")
+    synthetic.add_argument("folder", help="folder for the input images")
+    synthetic.add_argument("--expected", help="folder for the ground-truth labels (TIFF, same names)")
+    synthetic.add_argument("--images", type=int, default=1, help="number of images")
+    synthetic.add_argument("--format", choices=("zarr", "tiff"), default="zarr", help="OME-Zarr (default) or OME-TIFF")
+    synthetic.add_argument("--seed", type=int, default=0)
+    synthetic.add_argument("--name", default="synthetic", help="image file name (stem)")
+    _synthetic_options(synthetic)
+
+    compare = commands.add_parser("compare", help="compare a workflow's output folder with expected outputs")
+    compare.add_argument("output")
+    compare.add_argument("expected")
+    compare.add_argument("--min-dice", type=float, default=0.9, help="minimum foreground Dice for label images")
+    compare.add_argument("--rtol", type=float, default=1e-3, help="relative tolerance for intensities and numbers")
 
     to_biaflows = commands.add_parser("to-biaflows", help="write a BIAFLOWS descriptor.json for a bilayers config")
     to_biaflows.add_argument("config")
@@ -111,12 +152,32 @@ def _run(args) -> int:
         params = dict(param.split("=", 1) for param in args.param)
         try:
             container_test(Path(args.config), runtime=args.runtime, sample=args.sample, params=params,
-                           build=not args.no_build, keep=args.keep)
+                           build=not args.no_build, keep=args.keep, expected=args.expected,
+                           synthetic=_synthetic_spec(args, "synthetic-") if args.synthetic else None,
+                           min_dice=args.min_dice, rtol=args.rtol)
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(f"error: {error}", file=sys.stderr)
             return 1
         print("Container test passed")
         return 0
+    if args.command == "synthetic":
+        from .sample_data import write_synthetic
+
+        images = write_synthetic(Path(args.folder), Path(args.expected) if args.expected else None,
+                                 _synthetic_spec(args), images=args.images, as_zarr=args.format == "zarr",
+                                 seed=args.seed, name=args.name)
+        print("\n".join(str(image) for image in images))
+        return 0
+    if args.command == "compare":
+        import tempfile
+
+        from .compare import compare_outputs, unpack
+
+        with tempfile.TemporaryDirectory() as workdir:
+            results = compare_outputs(unpack(Path(args.output), Path(workdir)), Path(args.expected),
+                                      min_dice=args.min_dice, rtol=args.rtol)
+        print("\n".join(str(result) for result in results))
+        return int(not all(result.ok for result in results))
     _write(biaflows.descriptor_from_bilayers(BilayersSpec(args.config)), args.output, as_json=True)
     return 0
 

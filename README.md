@@ -74,10 +74,26 @@ biomero-auto command config.yaml -- <args>        # the tool command line
 biomero-auto from-biaflows <descriptor.json|URL>  # draft config.yaml for a BIAFLOWS workflow
 biomero-auto to-biaflows config.yaml              # descriptor.json for BIAFLOWS-only deployments
 biomero-auto container-test [config.yaml]         # build the image with Docker and run it like BIOMERO
+biomero-auto synthetic <in> [--expected <dir>]    # synthetic input images + ground-truth labels
+biomero-auto compare <out> <expected>             # compare a workflow's outputs with expected ones
 ```
 
 `container-test` options: `--sample <folder>` (default: generated OME-Zarr), `--param name=value`,
-`--runtime podman` (default `docker`), `--no-build`, `--keep <job folder>`.
+`--runtime podman` (default `docker`), `--no-build`, `--keep <job folder>`,
+`--expected <folder>` (compare the outputs with expected ones), `--synthetic` (synthetic input,
+compared with its ground truth), `--min-dice`, `--rtol`.
+
+Synthetic images (`synthetic`, or `container-test --synthetic` with the same options prefixed
+`--synthetic-`): `--size`, `--z`, `--t`, `--channels`, `--objects`, `--radius`, `--noise`,
+`--dtype`; `synthetic` also takes `--images`, `--format zarr|tiff`, `--seed`, `--name`.
+Images are written as BIOMERO provides them (OME-Zarr by default), their instance labels as TIFF
+files of the same name in the `--expected` folder.
+
+Comparison: each expected file must match an output with the same name (ignoring the image
+format) or whose name starts with it (`a.tif` ~ `a_labels.ome.zarr`). Label images must overlap
+(foreground Dice >= `--min-dice`, default 0.9) and have the same object count (label values may
+differ; a binary mask is compared by overlap only); other images and CSV/TSV numbers must agree
+within `--rtol` (default 1e-3); other files must be identical. RO-Crate metadata is not compared.
 
 ## Development
 

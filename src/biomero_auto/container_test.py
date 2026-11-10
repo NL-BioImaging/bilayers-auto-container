@@ -12,8 +12,10 @@ from typing import Sequence
 
 import yaml
 
+from .compare import compare_outputs, unpack
 from .contract import biomero_argv, write_sample_input
 from .fair import CRATE_METADATA
+from .sample_data import Synthetic, write_synthetic
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +65,14 @@ def run_command(runtime: str, image: str, platform: str, data_folder: Path, args
 
 def container_test(config: Path, *, context: Path | None = None, runtime: str = "docker",
                    sample: Path | None = None, params: dict | None = None, build: bool = True,
-                   keep: Path | None = None) -> list[Path]:
-    """Build the image, run it on a BIOMERO-style job and check the results; returns the outputs."""
+                   keep: Path | None = None, expected: Path | None = None, synthetic: Synthetic | None = None,
+                   min_dice: float = 0.9, rtol: float = 1e-3) -> list[Path]:
+    """Build the image, run it on a BIOMERO-style job and check the results; returns the outputs.
+
+    The input is ``sample`` (a folder of images), else ``synthetic`` images (whose ground-truth
+    labels become the expected output unless ``expected`` is given), else a small OME-Zarr.
+    With expected outputs, every one must match an output (see ``compare.compare_outputs``).
+    """
     config = Path(config)
     context = Path(context) if context else build_context(config)
     runtime = detect_runtime(runtime)
@@ -77,6 +85,12 @@ def container_test(config: Path, *, context: Path | None = None, runtime: str = 
         shutil.rmtree(data / "in")
     if sample:
         shutil.copytree(sample, data / "in")
+    elif synthetic:
+        if expected is None:
+            expected = job / "expected"
+            if expected.exists():
+                shutil.rmtree(expected)
+        write_synthetic(data / "in", expected, synthetic)
     else:
         write_sample_input(data / "in")
     (data / "out").mkdir(parents=True, exist_ok=True)
@@ -94,6 +108,14 @@ def container_test(config: Path, *, context: Path | None = None, runtime: str = 
     if not has_crate:
         logger.warning("No %s in the output", CRATE_METADATA)
     logger.info("Outputs in %s: %s", data / "out", [path.name for path in outputs])
+    if expected is not None:
+        results = compare_outputs(unpack(data / "out", job), Path(expected), min_dice=min_dice, rtol=rtol)
+        for result in results:
+            logger.info("%s", result)
+        failed = [result for result in results if not result.ok]
+        if failed:
+            raise RuntimeError(f"{len(failed)} of {len(results)} expected outputs do not match:\n"
+                               + "\n".join(str(result) for result in failed))
     return outputs
 
 

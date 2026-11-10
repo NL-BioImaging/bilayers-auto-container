@@ -84,3 +84,31 @@ def test_build_context_is_the_config_folder_in_a_workflow_repository(tmp_path):
     config.write_text("")
     assert ct.build_context(config) == config.parent.resolve()
     assert ct.build_context(WORKFLOW_CONFIG) == ROOT
+
+
+def _fake_engine(monkeypatch, write_output):
+    """No Docker: the 'run' step calls write_output(data folder) instead."""
+    monkeypatch.setattr(ct, "detect_runtime", lambda runtime="docker": runtime)
+
+    def fake_run(argv):
+        if argv[1] == "run":
+            write_output(Path(argv[argv.index("-v") + 1].rsplit(":/data", 1)[0]))
+    monkeypatch.setattr(ct, "_run", fake_run)
+
+
+def test_synthetic_input_is_compared_with_its_ground_truth(tmp_path, monkeypatch):
+    import tifffile
+
+    def segment(data):  # a perfect segmentation: the ground truth labels
+        for labels in (data.parent / "expected").iterdir():
+            tifffile.imwrite(data / "out" / f"{labels.stem}_labels.tif", tifffile.imread(labels))
+    _fake_engine(monkeypatch, segment)
+    synthetic = ct.Synthetic(objects=3)
+    outputs = ct.container_test(WORKFLOW_CONFIG, keep=tmp_path / "job", synthetic=synthetic)
+    assert [output.name for output in outputs] == ["synthetic_labels.tif"]
+    assert find_images(tmp_path / "job" / "data" / "in")[0].name == "synthetic.ome.zarr"
+
+    _fake_engine(monkeypatch, lambda data: (data / "out" / "synthetic_labels.tif").write_bytes(b""))
+    with pytest.raises(RuntimeError, match="1 of 1 expected outputs do not match"):
+        ct.container_test(WORKFLOW_CONFIG, keep=tmp_path / "job2", synthetic=synthetic,
+                          expected=tmp_path / "job" / "expected")
