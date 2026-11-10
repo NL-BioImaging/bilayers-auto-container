@@ -11,8 +11,9 @@ installed from GitHub into each workflow image, never copied: a workflow reposit
 tool's own files and a few tests. Write no other runtime code unless the tool really needs it;
 reuse the tool's own CLI and packages.
 
-Read [references/biomero-contract.md](references/biomero-contract.md) before writing
-`config.yaml`, and [references/source-types.md](references/source-types.md) for the source.
+Read [references/container-contract.md](references/container-contract.md) and
+[references/biomero-contract.md](references/biomero-contract.md) before writing `config.yaml`,
+and [references/source-types.md](references/source-types.md) for the source.
 
 ## The container's pipeline (all workflows)
 
