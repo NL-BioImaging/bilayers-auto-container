@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import tifffile
 
-from biomero_auto.conversion import TIFF, ZARR, convert, normalize_formats, prepare_input
+from biomero_auto.conversion import TIFF, ZARR, convert, find_images, normalize_formats, prepare_input
 from conftest import add_omero_metadata
 
 
@@ -52,3 +52,14 @@ def test_prepare_input_converts_and_keeps_other_files(zarr_folder, tmp_path):
     folder, found = prepare_input(zarr_folder, {TIFF}, tmp_path / "staging")
     assert found == {ZARR}
     assert sorted(path.name for path in folder.iterdir()) == ["blobs.ome.tiff", "notes.txt"]
+
+
+def test_images_with_the_same_internal_name_do_not_overwrite_each_other(tmp_path):
+    folder = tmp_path / "in"
+    folder.mkdir()
+    for name in ("a", "b"):  # both carry the OME image name "Image0"
+        tifffile.imwrite(folder / f"{name}.ome.tif", np.zeros((8, 8), np.uint16), ome=True)
+    staging, found = prepare_input(folder, {ZARR}, tmp_path / "staging")
+    assert found == {TIFF}
+    assert [image.name for image in find_images(staging)] == ["a.ome.zarr", "b.ome.zarr"]
+    assert [entry.name for entry in staging.iterdir()] == ["a.ome.zarr", "b.ome.zarr"]  # no leftovers

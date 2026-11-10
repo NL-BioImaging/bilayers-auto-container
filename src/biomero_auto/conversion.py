@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Iterable
 
@@ -48,15 +49,47 @@ def find_images(folder: Path) -> list[Path]:
     return sorted(entry for entry in folder.iterdir() if image_format(entry))
 
 
+IMAGE_SUFFIXES = (".ome.zarr", ".zarr", ".ome.tiff", ".ome.tif", ".tiff", ".tif")
+
+
+def image_stem(path: Path) -> str:
+    """The name of an image without its format suffix (``a.ome.zarr`` -> ``a``)."""
+    name = path.name
+    for suffix in IMAGE_SUFFIXES:
+        if name.lower().endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+
 def convert(source: Path, dest_folder: Path, target: str, zarr_format: str | None = None) -> list[Path]:
-    """Convert one image (file or zarr store) with biomero-converter; returns the written paths."""
+    """Convert one image (file or zarr store) with biomero-converter; returns the written paths.
+
+    The converter names its output after the image name in the metadata (e.g. ``Image0``), so
+    images with the same internal name would overwrite each other. Each image is therefore
+    converted into its own folder and named after the source: ``<stem><suffix>``, or
+    ``<stem>_<converter name><suffix>`` when one source holds several images.
+    """
     from biomero_converter.converter import convert as converter_convert
 
     dest_folder.mkdir(parents=True, exist_ok=True)
     output_format = zarr_format if target == ZARR and zarr_format else CONVERTER_FORMATS[target]
     logger.info("Converting %s -> %s (%s)", source, dest_folder, output_format)
-    results = json.loads(converter_convert(str(source), str(dest_folder), output_format=output_format))
-    return [Path(result["full_path"]) for result in results]
+    staging = Path(tempfile.mkdtemp(prefix=".converting-", dir=dest_folder))
+    try:
+        results = json.loads(converter_convert(str(source), str(staging), output_format=output_format))
+        converted = [Path(result["full_path"]) for result in results]
+        written = []
+        for path in converted:
+            suffix = path.name[len(image_stem(path)):]
+            name = image_stem(source) if len(converted) == 1 else f"{image_stem(source)}_{image_stem(path)}"
+            dest = dest_folder / f"{name}{suffix}"
+            if dest.exists():
+                raise FileExistsError(f"{dest} already exists (two input images with the same name?)")
+            shutil.move(str(path), str(dest))
+            written.append(dest)
+        return written
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 def link_or_copy(source: Path, dest: Path) -> None:
