@@ -39,14 +39,14 @@ def _write(data: dict, output: str | None, as_json: bool) -> None:
         sys.stdout.write(text)
 
 
-def _biomero_check(config: str) -> list[str]:
-    """Parse the config with BIOMERO's own bilayers adapter (needs the biomero package)."""
+def _slurm_check(config: str) -> list[str]:
+    """Parse the config with the Slurm client's bilayers parser (needs the biomero package)."""
     from biomero.schema_parsers import WorkflowDescriptorParser
 
     try:
         WorkflowDescriptorParser.parse_descriptor(yaml.safe_load(Path(config).read_text(encoding="utf-8")))
-    except Exception as error:  # noqa: BLE001 - report whatever BIOMERO rejects
-        return [f"[BIOMERO] {error}"]
+    except Exception as error:  # noqa: BLE001 - report whatever the Slurm client rejects
+        return [f"[slurm] {error}"]
     return []
 
 
@@ -75,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
 
     validate = commands.add_parser("validate", help="validate a bilayers config (bilayers-schema LinkML schema)")
     validate.add_argument("config")
-    validate.add_argument("--biomero", action="store_true", help="also parse it with BIOMERO's bilayers adapter")
+    validate.add_argument("--slurm", action="store_true", help="also parse it with the Slurm client's bilayers parser")
 
     for name, help_text in (("parse", "print the values resolved from ARGS as JSON"),
                             ("command", "print the tool command built from ARGS")):
@@ -91,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     from_biaflows.add_argument("--input-format", nargs="+", default=["tiff"])
     from_biaflows.add_argument("--output-format", nargs="+", default=["tiff"])
 
-    check = commands.add_parser("container-test", help="build the image with Docker and run it on a sample job like BIOMERO")
+    check = commands.add_parser("container-test", help="build the image with Docker and run it on a sample job like the Slurm client")
     check.add_argument("config", nargs="?", default="config.yaml")
     check.add_argument("--runtime", choices=("docker", "podman"), default="docker")
     check.add_argument("--sample", help="folder of input images (default: a generated OME-Zarr)")
@@ -165,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run(args) -> int:
     if args.command == "validate":
-        issues = validate_config(args.config) + (_biomero_check(args.config) if args.biomero else [])
+        issues = validate_config(args.config) + (_slurm_check(args.config) if args.slurm else [])
         print("\n".join(issues) if issues else "No issues found")
         return int(bool(issues))
     if args.command in ("parse", "command"):

@@ -1,4 +1,4 @@
-"""Fractal tasks (https://fractal-analytics-platform.github.io/) in a BIOMERO container.
+"""Fractal tasks (https://fractal-analytics-platform.github.io/) in a bilayers container.
 
 * :func:`fractal_tool` runs a Fractal task the way Fractal does: ``<command> --args-json
   <file> --out-json <file>``, with ``zarr_url`` (parallel tasks), ``zarr_urls`` + ``zarr_dir``
@@ -9,13 +9,13 @@
 Fractal tasks change the OME-Zarr images they are given (they add images, labels and tables
 to them), so each input image is first copied into the output folder and the task runs on
 the copies. Images the task reports as new (``image_list_updates``) are the outputs; the
-copies are then removed, as BIOMERO would otherwise import the input again. When the task
+copies are then removed, as the input would otherwise be imported again. When the task
 reports no new images, it changed the copies in place and they are the output.
 
 Nested argument objects are flattened into parameters named ``<argument>__<field>``
 (e.g. ``channel__label``); empty values are left out, so the task's defaults apply.
 
-What OMERO exports lack and Fractal tasks often need (see ``fractal_tool``): the channels'
+What the exported images lack and Fractal tasks often need (see ``fractal_tool``): the channels'
 ``wavelength_id`` (added), ROI tables such as ``FOV_ROI_table`` (a ``prepare`` step), and the
 HCS plate/well structure (images come one by one, so plate-level tasks do not apply).
 New images get a name ending in ``.zarr`` (``a.ome.zarr_fused`` -> ``a_fused.ome.zarr``).
@@ -78,7 +78,7 @@ def _split(command: str | Sequence[str]) -> list[str]:
 
 def add_wavelength_ids(image: Path) -> None:
     """Give each ``omero`` channel the ``wavelength_id`` Fractal expects (fractal-tasks-core's
-    OmeroChannel requires it; OMERO exports do not have it): ``C01``, ``C02``, ... when missing."""
+    OmeroChannel requires it; exported images do not have it): ``C01``, ``C02``, ... when missing."""
     attrs_path = image / ".zattrs"
     if not attrs_path.exists():  # OME-Zarr 0.5 (zarr.json) is not used by Fractal tasks
         return
@@ -91,7 +91,7 @@ def add_wavelength_ids(image: Path) -> None:
 
 
 def _image_name(path: Path, copies: Sequence[Path]) -> Path:
-    """A name ending in ``.zarr`` for a new image (BIOMERO imports only those): Fractal tasks
+    """A name ending in ``.zarr`` for a new image (only those are imported): Fractal tasks
     often append a suffix to the input name (``a.ome.zarr`` -> ``a.ome.zarr_fused``)."""
     if image_format(path):
         return path
@@ -186,7 +186,7 @@ def run_step(step: Mapping, images: list[dict], out: Path, calls: Path, params: 
             collect(_call(_command(step, "command_parallel", task_python), {**args_p, **item},
                           calls, f"{name}-{index}"), [item.get("zarr_url")])
     else:
-        raise ValueError(f"step {name}: a {kind} task cannot run on BIOMERO's images")
+        raise ValueError(f"step {name}: a {kind} task cannot run on the Slurm client's images")
     by_url = {image["zarr_url"]: image for image in images}
     output_types = step.get("output_types") or {}
     for update in updates:
@@ -493,7 +493,7 @@ def _manifest_task(manifest: Mapping, name: str) -> Mapping | None:
 
 
 def _plan_step(step: Mapping, task: Mapping | None, package: str | None, ids: set) -> dict:
-    """The step as fractal_workflow runs it, and whether/why it is left out for BIOMERO."""
+    """The step as fractal_workflow runs it, and whether/why it is left out for the Slurm client."""
     base = _identifier(step["alias"] or step["task_name"] or f"step{step['index']}")
     step_id, n = base, 2
     while step_id in ids:
@@ -520,13 +520,13 @@ def _plan_step(step: Mapping, task: Mapping | None, package: str | None, ids: se
     if task is None:
         plan["skip"] = "task not found in its package manifest (give it with --manifest)"
     elif converter and not plan["imports_ome_zarr"]:
-        plan["skip"] = "converts raw microscope data; BIOMERO provides OME-Zarr images"
+        plan["skip"] = "converts raw microscope data; the Slurm client provides OME-Zarr images"
     elif converter:
         plan["kind"] = "converter_non_parallel"
-        plan["note"] = "imports the OME-Zarr image (adds ROI tables and metadata OMERO exports lack)"
+        plan["note"] = "imports the OME-Zarr image (adds ROI tables and metadata the exported images lack)"
     elif "hcs_plate" in name or "multiplex" in name or "reference_acquisition" in {**step["args_non_parallel"],
                                                                                 **step["args_parallel"]}:
-        plan["note"] = ("works on HCS plates / multiplexing acquisitions; BIOMERO gives single images "
+        plan["note"] = ("works on HCS plates / multiplexing acquisitions; the Slurm client gives single images "
                         "(use an image-level task if the package has one)")
     return plan
 

@@ -1,6 +1,6 @@
-# Bilayers spec of this workflow; BIOMERO reads it directly from the repository (at a release tag).
+# Bilayers spec of this workflow; the Slurm client reads it directly from the repository (at a release tag).
 # Example: bilayers' classical segmentation algorithm (bilayers-algorithms). It reads TIFF,
-# so OME-Zarr inputs from BIOMERO are converted to TIFF and its TIFF labels back to OME-Zarr.
+# so OME-Zarr inputs from the Slurm client are converted to TIFF and its TIFF labels back to OME-Zarr.
 citations:
   - name: "Classical Segmentation"
     doi: "https://doi.org/10.5281/zenodo.17652333"
@@ -108,7 +108,7 @@ parameters:
   - name: save_dir
     type: textbox
     label: "Save directory"
-    description: "Directory to save output files (set by BIOMERO)"
+    description: "Directory to save output files (set by the Slurm client)"
     output_dir_set: True
     default: "/data/out"
     cli_tag: "--save_dir"

@@ -2,7 +2,7 @@
 
 Each image holds bright objects (discs, or balls when ``z > 1``) on a dark background, with
 optional noise; the objects' instance labels are the expected output of a segmentation.
-Images are written as BIOMERO provides them (OME-Zarr by default, or OME-TIFF), the labels as
+Images are written as the Slurm client provides them (OME-Zarr by default, or OME-TIFF), the labels as
 TIFF files with the same name in the ``expected`` folder, for ``compare_outputs``.
 """
 from __future__ import annotations

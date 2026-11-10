@@ -7,7 +7,8 @@ import numpy as np
 import pytest
 import tifffile
 
-from bilayers_auto.contract import add_omero_metadata, biomero_argv  # noqa: F401 - used by tests
+from bilayers_auto.contract import add_omero_metadata, slurm_argv  # noqa: F401 - used by tests
+from bilayers_auto.runner import ENV_SETTINGS
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples" / "classical_segmentation"
@@ -34,7 +35,7 @@ def tiff_folder(tmp_path):
 
 @pytest.fixture
 def zarr_folder(tmp_path, tiff_folder):
-    """The same image as OME-Zarr, as BIOMERO provides it in data/in."""
+    """The same image as OME-Zarr, as the Slurm client provides it in data/in."""
     from bilayers_auto.conversion import convert
 
     folder = tmp_path / "data" / "in"
@@ -50,7 +51,6 @@ def python_cli_command():
 
 
 @pytest.fixture(autouse=True)
-def _clean_biomero_env(monkeypatch):
-    for name in list(os.environ):
-        if name.startswith("BIOMERO_"):
-            monkeypatch.delenv(name)
+def _clean_settings_env(monkeypatch):
+    for name in ENV_SETTINGS.values():
+        monkeypatch.delenv(name, raising=False)

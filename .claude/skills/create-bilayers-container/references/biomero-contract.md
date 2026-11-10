@@ -16,11 +16,28 @@ repository's `config.yaml` directly at the configured tag. It looks for `descrip
     tag), booleans as `True`/`False`, values from the OMERO script UI (defaults from the spec).
 - Images are exported from OMERO into `data/in` (OME-Zarr, or TIFF when converted by BIOMERO);
   everything in `data/out` is imported back. The job fails if `data/out` is empty.
+- The exported images are single OMERO images: pixels, axes, pixel sizes, OMERO channel names
+  and the `omero` rendering block, but no tool-specific metadata (e.g. Fractal ROI tables or
+  channel `wavelength_id`s) and no HCS plate/well layout. The tests' "export-like copy" is the
+  test data reduced to this.
+- Parameter `label`s and `description`s are shown to OMERO users.
 - `docker_image.org/name` is the image; the version comes from the repository tag.
 - `label` is shown as the parameter name in OMERO, `description` as help, `mode`/`section_id`
   are informational.
 
-`tests/conftest.py::biomero_argv` reproduces these arguments with BIOMERO's own functions.
+`tests/conftest.py::slurm_argv` reproduces these arguments with BIOMERO's own functions.
+
+## Registering a workflow
+
+After the release (tag `vX.Y.Z` equal to `docker_image.tag`, image pushed), add the workflow
+to BIOMERO's `slurm-config.ini`:
+
+```ini
+[WORKFLOWS]
+<key>=<key>
+<key>_repo=https://github.com/<org>/<repo>/tree/vX.Y.Z
+<key>_image=<docker org>/<docker name>
+```
 
 ## What the wrapper does with them
 
@@ -32,14 +49,14 @@ repository's `config.yaml` directly at the configured tag. It looks for `descrip
    when the workflow accepts more formats than the tool reads), converts them (biomero-converter)
    into a staging folder next to `data/out`.
 3. Runs the tool into a staging folder.
-4. Converts output images only when required (`BIOMERO_OUTPUT_FORMAT`: `auto` converts images
+4. Converts output images only when required (`OUTPUT_FORMAT`: `auto` converts images
    in a format the output `format` does not list, to one it lists, OME-Zarr first; `zarr`/`tiff`
    force a format; `keep` never converts).
 5. FAIRification: `create_ro_crate` (fair-metadata-integration) writes the Workflow RO-Crate
    into `data/out`: `ro-crate-metadata.json`, the config, the run's values (`parameters.yaml`,
    by the config's sections) and the outputs; the input is
-   described in it (`BIOMERO_RO_CRATE_INPUT=reference`, default) or copied (`copy`).
-6. With `BIOMERO_ZIP_OUTPUT=true` (default `false`): replaces the contents of `data/out` by
+   described in it (`RO_CRATE_INPUT=reference`, default) or copied (`copy`).
+6. With `ZIP_OUTPUT=true` (default `false`): replaces the contents of `data/out` by
    `<algorithm_folder_name>.zip`, stored (no compression).
 
 ## What BIOMERO does with `data/out`
@@ -57,8 +74,8 @@ BIOMERO on Slurm zips `data/out` (7z/zip), copies the zip to the OMERO server, a
 It has no RO-Crate handling, and images inside a nested zip are not imported. Hence the
 defaults: no zip, and no input copy in `data/out`.
 
-Environment overrides: `BIOMERO_CONVERT_INPUTS`, `BIOMERO_TOOL_FORMATS`, `BIOMERO_OUTPUT_FORMAT`, `BIOMERO_ZARR_FORMAT`,
-`BIOMERO_RO_CRATE`, `BIOMERO_RO_CRATE_INPUT`, `BIOMERO_ZIP_OUTPUT`, `BIOMERO_WORKDIR`
+Environment overrides: `CONVERT_INPUTS`, `TOOL_FORMATS`, `OUTPUT_FORMAT`, `OMEZARR_VERSION`,
+`RO_CRATE`, `RO_CRATE_INPUT`, `ZIP_OUTPUT`, `WORKDIR`
 (see `src/bilayers_auto/runner.py`).
 
 ## Running outside Slurm (Docker)

@@ -1,23 +1,23 @@
 """Container entrypoint logic.
 
 Resolve values, convert inputs, run the tool, convert outputs back, FAIRify the output
-folder into a Workflow RO-Crate, and optionally zip it (stored) for the return to OMERO.
+folder into a Workflow RO-Crate, and optionally zip it (stored) for the return.
 
 Settings can be passed to :func:`run` or overridden with environment variables:
 
-``BIOMERO_CONVERT_INPUTS``  convert input images to a format the spec accepts (default ``true``)
-``BIOMERO_TOOL_FORMATS``    comma-separated image formats the tool reads, when fewer than the spec's
-                            input ``format`` (what the workflow accepts); the others are converted
-``BIOMERO_OUTPUT_FORMAT``   ``auto`` (convert only output images in a format the spec's output ``format``
-                            does not list, to one it lists), ``zarr``, ``tiff`` or ``keep``
-``BIOMERO_ZARR_FORMAT``     biomero-converter zarr format (default ``omezarr04``)
-``BIOMERO_RO_CRATE``        make the output folder a Workflow RO-Crate (default ``true``)
-``BIOMERO_RO_CRATE_INPUT``  ``reference`` the input in the crate (default) or ``copy`` it into the output folder
-``BIOMERO_ZIP_OUTPUT``      replace the output folder contents by one uncompressed zip (default ``false``)
+``CONVERT_INPUTS``  convert input images to a format the spec accepts (default ``true``)
+``TOOL_FORMATS``    comma-separated image formats the tool reads, when fewer than the spec's
+                    input ``format`` (what the workflow accepts); the others are converted
+``OUTPUT_FORMAT``   ``auto`` (convert only output images in a format the spec's output ``format``
+                    does not list, to one it lists), ``zarr``, ``tiff`` or ``keep``
+``OMEZARR_VERSION`` OME-Zarr version written by conversions (default ``omezarr04``)
+``RO_CRATE``        make the output folder a Workflow RO-Crate (default ``true``)
+``RO_CRATE_INPUT``  ``reference`` the input in the crate (default) or ``copy`` it into the output folder
+``ZIP_OUTPUT``      replace the output folder contents by one uncompressed zip (default ``false``)
+``WORKDIR``         folder for staging data (default: next to the output folder)
 
-The defaults match what BIOMERO expects: it zips ``data/out`` itself and imports every image
-found in it (recursively), so the output is left unzipped and holds no copy of the input.
-``BIOMERO_WORKDIR``         folder for staging data (default: next to the output folder)
+The defaults leave the output unzipped and without a copy of the input: the Slurm client zips
+``data/out`` itself and every image found in it is imported.
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class RunContext:
     """What a tool function gets: the spec, the resolved values and the folders to use."""
 
     spec: BilayersSpec
-    values: RunValues  # as received; outputs are the final (BIOMERO) folders
+    values: RunValues  # as received; outputs are the final (Slurm job) folders
     inputs: dict[str, Path]  # folders the tool reads (converted copies if needed)
     outputs: dict[str, Path]  # folders the tool writes (staging folders if outputs get converted)
     workdir: Path
@@ -79,8 +79,21 @@ def run_command(ctx: RunContext) -> None:
     subprocess.run(argv, check=True)
 
 
+# run() setting -> environment variable that overrides it
+ENV_SETTINGS = {
+    "convert_inputs": "CONVERT_INPUTS",
+    "tool_formats": "TOOL_FORMATS",
+    "output_format": "OUTPUT_FORMAT",
+    "zarr_format": "OMEZARR_VERSION",
+    "ro_crate": "RO_CRATE",
+    "ro_crate_input": "RO_CRATE_INPUT",
+    "zip_output": "ZIP_OUTPUT",
+    "workdir": "WORKDIR",
+}
+
+
 def _setting(name: str, value, default):
-    env = os.environ.get(f"BIOMERO_{name.upper()}")
+    env = os.environ.get(ENV_SETTINGS[name])
     if env is not None:
         return env
     return default if value is None else value
@@ -123,11 +136,11 @@ def run(argv: Sequence[str] | None = None, *, spec: str | Path | BilayersSpec, t
             "zip_output": to_bool(_setting("zip_output", zip_output, False)),
         }
         if settings["ro_crate_input"] not in ("reference", "copy"):
-            raise SpecError(f"BIOMERO_RO_CRATE_INPUT must be 'reference' or 'copy', not {settings['ro_crate_input']!r}")
+            raise SpecError(f"RO_CRATE_INPUT must be 'reference' or 'copy', not {settings['ro_crate_input']!r}")
         final_outputs = {name: path for name, path in values.outputs.items() if path is not None}
         default_workdir = (next(iter(final_outputs.values())).resolve().parent if final_outputs else Path.cwd())
         # not a hidden (dot) folder: tools skip those, e.g. CellProfiler's default Images filter
-        work = Path(_setting("workdir", workdir, default_workdir)) / f"biomero-work-{uuid.uuid4().hex[:8]}"
+        work = Path(_setting("workdir", workdir, default_workdir)) / f"bilayers-work-{uuid.uuid4().hex[:8]}"
         work.mkdir(parents=True)
         try:
             _run(spec, values, tool, final_outputs, work, settings)

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bilayers-auto-container"
 version = "0.1.0"
-description = "Template for BIOMERO workflow containers described by a bilayers spec, with OME-Zarr conversion and RO-Crate metadata"
+description = "Template for bilayers workflow containers described by a bilayers spec, with OME-Zarr conversion and RO-Crate metadata"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -23,7 +23,7 @@ validate = ["linkml"]
 test = [
     "pytest>=7.0",
     "bilayers-auto-container[validate]",
-    # BIOMERO's own bilayers parsing, for the contract tests
+    # The Slurm client's own bilayers parsing, for the contract tests
     "biomero>=2.5",
     # the example tool in config.yaml
     "bilayers-algorithms @ git+https://github.com/bilayer-containers/bilayers-algorithms.git",

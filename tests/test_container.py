@@ -47,8 +47,8 @@ def test_run_command_mounts_the_job_data_folder(tmp_path):
     assert podman[6].endswith(":/data:Z")  # SELinux relabel
 
 
-def test_biomero_arguments_use_container_paths():
-    args = ct.biomero_argv(WORKFLOW_CONFIG, ct.CONTAINER_DATA)
+def test_slurm_arguments_use_container_paths():
+    args = ct.slurm_argv(WORKFLOW_CONFIG, ct.CONTAINER_DATA)
     assert any(arg.endswith("=/data/in") for arg in args)
     assert any(arg.endswith("=/data/out") for arg in args)
 
@@ -73,7 +73,7 @@ def _engine():
 
 @pytest.mark.container
 @pytest.mark.skipif(_engine() is None, reason="Docker is not running")
-def test_build_and_run_like_biomero(tmp_path):
+def test_build_and_run_like_slurm(tmp_path):
     outputs = ct.container_test(WORKFLOW_CONFIG, keep=tmp_path / "job")
     assert outputs, "no outputs"
 

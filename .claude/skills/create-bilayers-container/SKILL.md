@@ -1,9 +1,9 @@
 ---
 name: create-bilayers-container
-description: Create a BIOMERO-deployable, FAIR workflow container from a source workflow URL (a GitHub repo of a tool, a BIAFLOWS/NEUBIAS workflow, a Fractal task or workflow, a Galaxy tool or workflow, an existing bilayers workflow, a Python package, a pipeline for a GUI tool). Produces a new repository from this template with a bilayers config.yaml, wrapper.py, Dockerfile and tests; OME-Zarr/TIFF conversion and RO-Crate metadata are handled by bilayers_auto. Use when the user gives a workflow URL and asks for a BIOMERO (or bilayers) container.
+description: Create a Slurm-deployable, FAIR workflow container from a source workflow URL (a GitHub repo of a tool, a BIAFLOWS/NEUBIAS workflow, a Fractal task or workflow, a Galaxy tool or workflow, an existing bilayers workflow, a Python package, a pipeline for a GUI tool). Produces a new repository from this template with a bilayers config.yaml, wrapper.py, Dockerfile and tests; OME-Zarr/TIFF conversion and RO-Crate metadata are handled by bilayers_auto. Use when the user gives a workflow URL and asks for a bilayers (or Slurm) container.
 ---
 
-# Create a BIOMERO container from a workflow URL
+# Create a bilayers container from a workflow URL
 
 This repository is the template. `bilayers_auto` (in `src/`) does the generic work and is
 installed from GitHub into each workflow image, never copied: a workflow repository holds only
@@ -19,7 +19,7 @@ Read [references/biomero-contract.md](references/biomero-contract.md) before wri
 Every generated container runs these steps, in this order; the tool hook (step 4 below)
 only replaces "run the tool". Do not reimplement or skip any of them in `wrapper.py`.
 
-1. Resolve the values BIOMERO passes (`config.yaml`).
+1. Resolve the values the Slurm client passes (`config.yaml`).
 2. Convert input images to a `format` the tool accepts, only those it does not (biomero-converter).
 3. Run the tool (the sub-package / wrapped container) into a staging folder.
 4. Convert the tool's output images only when they are not in a `format` the workflow's outputs
@@ -30,18 +30,18 @@ only replaces "run the tool". Do not reimplement or skip any of them in `wrapper
    `section_id`, as the config has it), the input and outputs with EDAM formats, and the run's
    name, start and end time and software (the `docker_image`).
 6. Optionally zip the whole output folder, stored without compression, as one file
-   (`BIOMERO_ZIP_OUTPUT=true`, or `run(..., zip_output=True)` in `wrapper.py`).
+   (`ZIP_OUTPUT=true`, or `run(..., zip_output=True)` in `wrapper.py`).
 
-The defaults follow what BIOMERO currently expects, so keep them unless the deployment differs:
+The defaults follow what the Slurm client currently expects, so keep them unless the deployment differs:
 
-- **Not zipped.** BIOMERO zips `data/out` itself on Slurm, and `SLURM_Import_Results` imports
-  the images it finds (recursively) in it; it does not import images from a nested zip.
-  Zip only for a deployment that returns the folder as one archive (e.g. outside BIOMERO/Slurm).
-- **Input referenced, not copied** (`BIOMERO_RO_CRATE_INPUT=reference`). The crate describes
-  the input folder, but a copy in `data/out` would be imported into OMERO again;
+- **Not zipped.** The Slurm client zips `data/out` itself and imports the images it finds in it,
+  but not images from a nested zip (`references/biomero-contract.md`).
+  Zip only for a deployment that returns the folder as one archive (e.g. outside Slurm).
+- **Input referenced, not copied** (`RO_CRATE_INPUT=reference`). The crate describes
+  the input folder, but a copy in `data/out` would be imported back again;
   `copy` puts the input data in the crate (useful together with the zip).
-- `ro-crate-metadata.json` and `config.yaml` are non-image files: BIOMERO attaches them to
-  OMERO when "attach file outputs" is enabled in the import.
+- `ro-crate-metadata.json` and `config.yaml` are non-image files: they are only attached when the import is
+  set to attach file outputs.
 
 ## 0. Prerequisites
 
@@ -56,11 +56,11 @@ work. (Podman also works: `--runtime podman` below.) Use a venv with the templat
 - The URL the user gave is the source of truth. Ask only for what cannot be derived:
   the Docker Hub org/name to publish to and the target directory, if not given
   (default: a sibling directory `../bilayers_<ToolName>`, image name `bilayers_<toolname>` in
-  lowercase; no `W_` prefix or `-BIOMERO` suffix), and the test data (below).
+  lowercase), and the test data (below).
 - **Test data**, used to check the container's results in step 6. Unless the user already said,
   ask (in the same question as the above) which of these to use; more than one can be combined:
   1. **Input data and expected output from the user**: a folder of input images (OME-Zarr or
-     TIFF, as BIOMERO provides them) and a folder with the outputs the tool should produce for
+     TIFF, as the Slurm client provides them) and a folder with the outputs the tool should produce for
      them (e.g. from a reference run of the original tool). Read them as data, like the source.
   2. **Test data from the source**: the tool's own test data or examples (with expected results
      where the source has them). Without expected results, make them with a **reference run**:
@@ -83,13 +83,13 @@ work. (Podman also works: `--runtime podman` below.) Use a venv with the templat
   tool's own docs, `--help` text in its source, `descriptor.json`/`config.yaml`/`Dockerfile`,
   `__FRACTAL_MANIFEST__.json` or a Fractal workflow JSON, Galaxy tool XML / `.ga` if present. Pick the version to pin (the
   latest release, not `main`, unless asked) and read the code at that version.
-- **Find what the tool needs beyond the pixels.** BIOMERO gives images exported from OMERO:
-  OME-Zarr (or TIFF) with pixels, axes, pixel sizes and OMERO channel names, one image at a
-  time. Tool-specific metadata in the source's own data (e.g. Fractal ROI tables and channel
+- **Find what the tool needs beyond the pixels.** The Slurm client gives exported images
+  (`references/biomero-contract.md`): OME-Zarr (or TIFF) with pixels, axes, pixel sizes and
+  channel names, one image at a time. Tool-specific metadata in the source's own data (e.g. Fractal ROI tables and channel
   `wavelength_id`s, HCS plate/well layout, sidecar files) is not there. Search the tool's code
   for what it reads (`tables/`, metadata keys, file names) and plan how the container provides
   it (from parameters, computed, or defaults), or state the limitation. The tests then also run
-  an **OMERO-like copy** of the test data with that metadata removed.
+  an **export-like copy** of the test data with that metadata removed.
 
 ## 2. The workflow repository
 
@@ -110,12 +110,12 @@ commit unless asked). It gets:
 - `.github/workflows/ci.yml` (validate + pytest; `actions/setup-python` with `cache: pip` needs
   `cache-dependency-path: requirements-dev.txt`) and the template's `docker-image.yml`.
 - `.gitignore`, `.dockerignore`, and a `README.md` describing the workflow, its parameters,
-  outputs and BIOMERO registration. Directly under its title, a generated-with notice, e.g.:
+  outputs and registration with the Slurm client. Directly under its title, a generated-with notice, e.g.:
 
-  > This BIOMERO workflow container was generated with AI assistance (<assistant>, using the
+  > This bilayers workflow container was generated with AI assistance (<assistant>, using the
   > `create-bilayers-container` skill) using
   > [bilayers-auto-container](https://github.com/NL-BioImaging/bilayers-auto-container) from
-  > [<tool name>](<source URL>). It runs in [BIOMERO](https://github.com/NL-BioImaging/biomero),
+  > [<tool name>](<source URL>). It runs on Slurm,
   > is described by a [bilayers](https://github.com/bilayer-containers/bilayers) spec
   > (`config.yaml`), and adds OME-Zarr conversion and RO-Crate metadata. See
   > [generated-notes.md](generated-notes.md) for how it was made.
@@ -129,7 +129,7 @@ commit unless asked). It gets:
 Do not copy `src/`, `tests/`, `scripts/`, `examples/` or `.claude/`.
 
 **Always remove any existing `descriptor.json` (and `descriptor.yaml`)** after drafting
-`config.yaml` from it (`git rm` when adapting in place). BIOMERO looks for `descriptor.json`,
+`config.yaml` from it (`git rm` when adapting in place). The Slurm client looks for `descriptor.json`,
 then `descriptor.yaml`, then `config.yaml`, so a leftover descriptor silently keeps the workflow
 in the old BIAFLOWS mode; it is also no longer copied into the image. `bilayers-auto
 to-biaflows` regenerates one if a BIAFLOWS-only deployment ever needs it. Remove other files of
@@ -141,25 +141,25 @@ Use `examples/classical_segmentation/` only as a reference for the form of a fin
 Draft it from the source (see source types), then go through every field:
 
 - `inputs`: one `image` input per image folder the tool reads, `format` listing exactly what
-  the tool reads (`tiff`, `zarr`, ...). BIOMERO delivers OME-Zarr or TIFF; the wrapper converts
+  the tool reads (`tiff`, `zarr`, ...). The Slurm client delivers OME-Zarr or TIFF; the wrapper converts
   to the listed format automatically, so do not add conversion code. If the workflow should
   declare more formats than the tool reads (e.g. `ometiff` and `omezarr` for a TIFF tool), list
   them all and pass the readable ones to `run(spec=CONFIG, tool_formats=["tiff"])` in `wrapper.py`.
   `subtype/depth/timepoints/tiled/pyramidal` must state what the tool supports.
-- Outputs: either an output with a `cli_tag` (BIOMERO passes `data/out` to it) or an
+- Outputs: either an output with a `cli_tag` (the Slurm client passes `data/out` to it) or an
   `output_dir_set: True` parameter whose `cli_tag` is the tool's output-folder flag.
   List the output `format`(s) the workflow returns. Image formats are converted only when the
-  workflow requires it: inputs when BIOMERO's format is not in the input `format` (or the tool's
+  workflow requires it: inputs when the Slurm client's format is not in the input `format` (or the tool's
   `tool_formats`), outputs when the tool writes a format the output `format` does not list (to
-  one it lists, OME-Zarr first). Declare what the tool writes unless OMERO needs another format
-  (BIOMERO imports TIFF and OME-Zarr alike); OME-Zarr input alone is no reason to convert back.
+  one it lists, OME-Zarr first). Declare what the tool writes unless the import needs another format
+  (TIFF and OME-Zarr are imported alike); OME-Zarr input alone is no reason to convert back.
 - `parameters`: every user-facing tool option, with bilayers types only (`integer`, `float`,
   `checkbox`, `dropdown`, `radio`, `textbox`; never `string`), real defaults, `options` for
-  choices, clear `label`/`description` (shown in OMERO). `cli_tag`s must be the tool's flags
+  choices, clear `label`/`description` (shown to users). `cli_tag`s must be the tool's flags
   when the tool is called through its CLI.
 - `exec_function.cli_command`: the tool command inside the container (not `wrapper.py`).
 - `citations` (name, DOI, license, description of the actual tool) and `docker_image`
-  (org, name, `tag` = the release tag, platform) — these feed the RO-Crate and BIOMERO.
+  (org, name, `tag` = the release tag, platform) — these feed the RO-Crate and the Slurm client.
 
 ## 4. Choose the tool hook in `wrapper.py`
 
@@ -181,21 +181,21 @@ Draft it from the source (see source types), then go through every field:
 Fill in only the tool layer, between the `# >>> tool layer` and `# <<< tool layer` markers
 (keep the markers); change the base image only when the tool needs another one. Pin versions (tags/commits) of the tool and its dependencies, so
 each release tag of the workflow reproduces the same results. (The template's own dependencies,
-in `pyproject.toml` and the BIOMERO layer, stay unpinned.)
-**Keep the source's pinned versions**, also when a pinned tool cannot read a format BIOMERO
+in `pyproject.toml` and the bilayers layer, stay unpinned.)
+**Keep the source's pinned versions**, also when a pinned tool cannot read a format the Slurm client
 delivers (e.g. OME-Zarr): declare the formats it does read, so the input is converted (a
 conversion the workflow requires), rather than upgrading the tool; note it in the generated notes.
 Tool environments from conda (micromamba lock files) need `curl bzip2` next to `git` in the
 template's `apt-get install` line.
-In the BIOMERO layer, install the template from GitHub instead of copying `src/`:
+In the bilayers layer, install the template from GitHub instead of copying `src/`:
 `pip install "bilayers-auto-container @ git+https://github.com/NL-BioImaging/bilayers-auto-container.git"`.
 If the tool's image has no Python >= 3.12, give `bilayers_auto` its own environment and point
 `ENTRYPOINT` at it, e.g.:
 
 ```dockerfile
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
-RUN python -m pip install uv && uv venv /opt/biomero --python 3.12     && uv pip install --no-cache --python /opt/biomero/bin/python "bilayers-auto-container @ git+https://github.com/NL-BioImaging/bilayers-auto-container.git"     && chmod -R a+rX /opt/biomero /opt/uv-python
-ENTRYPOINT ["/opt/biomero/bin/python", "/app/wrapper.py"]
+RUN python -m pip install uv && uv venv /opt/bilayers --python 3.12     && uv pip install --no-cache --python /opt/bilayers/bin/python "bilayers-auto-container @ git+https://github.com/NL-BioImaging/bilayers-auto-container.git"     && chmod -R a+rX /opt/bilayers /opt/uv-python
+ENTRYPOINT ["/opt/bilayers/bin/python", "/app/wrapper.py"]
 ```
 
 Likewise when the tool's dependencies conflict with `bilayers_auto`'s (e.g. zarr 2 vs 3, as for
@@ -205,7 +205,7 @@ platform-only packages), and call it with that venv's Python. Use the same file 
 tests and CI.
 
 If the workflow needs `bilayers_auto` changes that are not on GitHub yet, build the local
-container test from a copy of the repository whose BIOMERO layer installs a wheel of the local
+container test from a copy of the repository whose bilayers layer installs a wheel of the local
 template (`pip wheel --no-deps -w <copy>/wheels <template>`), say so in the notes, and rebuild
 from GitHub once the template is pushed.
 
@@ -214,7 +214,7 @@ in the image itself (`docker inspect`), outside the repository:
 
 ```dockerfile
 LABEL org.opencontainers.image.title="<workflow name>" \
-      org.opencontainers.image.description="BIOMERO workflow container for <tool name>, generated using bilayers-auto-container (https://github.com/NL-BioImaging/bilayers-auto-container)" \
+      org.opencontainers.image.description="bilayers workflow container for <tool name>, generated using bilayers-auto-container (https://github.com/NL-BioImaging/bilayers-auto-container)" \
       org.opencontainers.image.source="<workflow repository URL>" \
       org.opencontainers.image.licenses="<tool license>"
 ```
@@ -223,7 +223,7 @@ The tool keeps running with its own Python (`cli_command`, e.g. `python /app/<to
 entrypoint must stay `wrapper.py`: the image is run (`singularity run`, `podman run`,
 `docker run`), not `cli_command`.
 
-The image is built and tested with Docker, and BIOMERO converts it to Singularity/Apptainer
+The image is built and tested with Docker, and the Slurm client converts it to Singularity/Apptainer
 on Slurm, so it must work under both:
 
 - No `USER` switch and no fixed UIDs: Singularity runs as the calling user, who must be able
@@ -237,20 +237,20 @@ on Slurm, so it must work under both:
 
 All of these must pass before the workflow is reported as done:
 
-1. `bilayers-auto validate config.yaml --biomero` (bilayers LinkML schema + BIOMERO's parser).
-2. `bilayers-auto command config.yaml -- --<flag>=<value> ...` with the arguments BIOMERO
+1. `bilayers-auto validate config.yaml --slurm` (bilayers LinkML schema + the Slurm client's parser).
+2. `bilayers-auto command config.yaml -- --<flag>=<value> ...` with the arguments the Slurm client
    would send (see the contract): the tool command must be what the tool expects.
 3. `pytest -m "not container"` on the workflow's `tests/test_workflow.py`, which uses
-   `bilayers_auto`'s public API: `bilayers_auto.cli.main(["validate", "config.yaml", "--biomero"])`,
-   `contract.biomero_argv` + `BilayersSpec.command` (the tool command BIOMERO's arguments give),
+   `bilayers_auto`'s public API: `bilayers_auto.cli.main(["validate", "config.yaml", "--slurm"])`,
+   `contract.slurm_argv` + `BilayersSpec.command` (the tool command the Slurm client's arguments give),
    Dockerfile checks (entrypoint `wrapper.py`, fully qualified `FROM`, no `USER`), a check that
    no `descriptor.json`/`descriptor.yaml` exists, and a
    `container`-marked test calling `container_test.container_test(...)` on the test data:
    `sample=` and `expected=` for stored data, or `synthetic=Synthetic(...)` (from
    `bilayers_auto.sample_data`), whose ground truth is then the expected output.
 4. `bilayers-auto container-test config.yaml`: builds the image with Docker and
-   runs it on a job laid out like BIOMERO's (`<job>/data/in`, `<job>/data/out`, the `data`
-   folder mounted at `/data`) with the arguments BIOMERO's own code generates, on the test
+   runs it on a job laid out like the Slurm client's (`<job>/data/in`, `<job>/data/out`, the `data`
+   folder mounted at `/data`) with the arguments the Slurm client's own code generates, on the test
    data from step 1:
    - user or source data: `--sample <input folder> --expected <expected folder>`;
    - synthetic data: `--synthetic` with `--synthetic-size/-z/-t/-channels/-objects/-radius/-noise/-dtype`
@@ -258,7 +258,7 @@ All of these must pass before the workflow is reported as done:
      or generate it once with `bilayers-auto synthetic <in> --expected <expected> ...` and pass
      the folders as above;
    - neither: a small generated OME-Zarr, without comparison;
-   - and, when the tool needs metadata OMERO exports lack (step 1), the OMERO-like copy, with
+   - and, when the tool needs metadata the exported images lack (step 1), the export-like copy, with
      the parameters that replace that metadata and its own reference run.
    With expected outputs, every expected file must match an output (same name ignoring the image
    format, or the output name starting with it, e.g. `a.tif` ~ `a_labels.ome.zarr`): label images
@@ -316,10 +316,4 @@ image or register the workflow; that is step 8.
 
 - Push the repo, create release tag `vX.Y.Z` matching `docker_image.tag`; the image
   `org/name:vX.Y.Z` must be pushed (`.github/workflows/docker-image.yml` does this on release).
-- BIOMERO `slurm-config.ini`, `[WORKFLOWS]` section:
-
-  ```ini
-  <key>=<key>
-  <key>_repo=https://github.com/<org>/<repo>/tree/vX.Y.Z
-  <key>_image=<docker org>/<docker name>
-  ```
+- Register it with the Slurm client: `references/biomero-contract.md`, "Registering a workflow".

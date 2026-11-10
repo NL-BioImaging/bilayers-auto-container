@@ -1,4 +1,4 @@
-"""Build the workflow image and run it on a sample job the way BIOMERO would (Docker; Podman optional)."""
+"""Build the workflow image and run it on a sample job the way the Slurm client would (Docker; Podman optional)."""
 from __future__ import annotations
 
 import logging
@@ -13,14 +13,14 @@ from typing import Sequence
 import yaml
 
 from .compare import compare_outputs, unpack
-from .contract import biomero_argv, write_sample_input
+from .contract import slurm_argv, write_sample_input
 from .fair import CRATE_METADATA
 from .sample_data import Synthetic, write_synthetic
 
 logger = logging.getLogger(__name__)
 
 RUNTIMES = ("docker", "podman")
-CONTAINER_DATA = PurePosixPath("/")  # BIOMERO's $DATA_PATH inside the container: /data/in, /data/out
+CONTAINER_DATA = PurePosixPath("/")  # the Slurm client's $DATA_PATH inside the container: /data/in, /data/out
 
 
 def detect_runtime(runtime: str = "docker") -> str:
@@ -67,7 +67,7 @@ def container_test(config: Path, *, context: Path | None = None, runtime: str = 
                    sample: Path | None = None, params: dict | None = None, build: bool = True,
                    keep: Path | None = None, expected: Path | None = None, synthetic: Synthetic | None = None,
                    min_dice: float = 0.9, rtol: float = 1e-3, mode: str = "auto") -> list[Path]:
-    """Build the image, run it on a BIOMERO-style job and check the results; returns the outputs.
+    """Build the image, run it on a Slurm-style job and check the results; returns the outputs.
 
     The input is ``sample`` (a folder of images), else ``synthetic`` images (whose ground-truth
     labels become the expected output unless ``expected`` is given), else a small OME-Zarr.
@@ -79,7 +79,7 @@ def container_test(config: Path, *, context: Path | None = None, runtime: str = 
     image, platform = image_name(config)
     if build:
         _run(build_command(runtime, context, image, platform, config))
-    job = Path(keep) if keep else Path(tempfile.mkdtemp(prefix="biomero-job-"))
+    job = Path(keep) if keep else Path(tempfile.mkdtemp(prefix="slurm-job-"))
     data = job / "data"
     if (data / "in").exists():
         shutil.rmtree(data / "in")
@@ -94,11 +94,11 @@ def container_test(config: Path, *, context: Path | None = None, runtime: str = 
     else:
         write_sample_input(data / "in")
     (data / "out").mkdir(parents=True, exist_ok=True)
-    args = biomero_argv(config, CONTAINER_DATA, **(params or {}))
+    args = slurm_argv(config, CONTAINER_DATA, **(params or {}))
     _run(run_command(runtime, image, platform, data, args))
     outputs = sorted((data / "out").iterdir())
     if not outputs:
-        raise RuntimeError(f"The workflow produced no files in {data / 'out'} (BIOMERO fails such jobs)")
+        raise RuntimeError(f"The workflow produced no files in {data / 'out'} (the Slurm client fails such jobs)")
     zips = [path for path in outputs if path.suffix == ".zip"]
     if zips:
         with zipfile.ZipFile(zips[0]) as archive:

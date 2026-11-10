@@ -1,6 +1,6 @@
 """OME-Zarr <-> TIFF conversion around a workflow, using biomero-converter.
 
-Inputs are converted when the images BIOMERO provides are in a format the spec's
+Inputs are converted when the images the Slurm client provides are in a format the spec's
 input ``format`` list does not accept; outputs are converted back (by default to
 OME-Zarr when the inputs were OME-Zarr and the tool does not write OME-Zarr itself).
 """

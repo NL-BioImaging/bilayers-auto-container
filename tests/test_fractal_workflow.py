@@ -85,7 +85,7 @@ def test_workflow_plan_and_parameters(tmp_path):
     assert config["inputs"][0]["depth"] is True
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(config, sort_keys=False))
-    assert main(["validate", str(path), "--biomero"]) == 0
+    assert main(["validate", str(path), "--slurm"]) == 0
 
 
 def test_cli_drafts_a_workflow_with_given_manifests(tmp_path):
@@ -98,7 +98,7 @@ def test_cli_drafts_a_workflow_with_given_manifests(tmp_path):
     steps = json.loads((tmp_path / "fractal_steps.json").read_text())
     assert [step["id"] for step in steps] == ["import_ome_zarr", "project_image_hcs_plate", "project_image",
                                               "threshold_segmentation"]
-    assert main(["validate", str(tmp_path / "config.yaml"), "--biomero"]) == 0
+    assert main(["validate", str(tmp_path / "config.yaml"), "--slurm"]) == 0
 
 
 def _ctx(tmp_path, params, z=2):

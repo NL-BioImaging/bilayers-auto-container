@@ -1,4 +1,4 @@
-"""The BIOMERO side of the contract, for tests and container checks (needs the ``biomero`` package)."""
+"""The Slurm client side of the contract, for tests and container checks (needs the ``biomero`` package)."""
 from __future__ import annotations
 
 import json
@@ -8,18 +8,18 @@ from pathlib import Path, PurePath
 
 import yaml
 
-# omero rendering block as in OMERO exports (biomero-converter output lacks it)
+# OME-NGFF "omero" rendering block, as exported images have it (biomero-converter output lacks it)
 OMERO_METADATA = {"channels": [{"active": True, "color": "FFFFFF", "label": "c0",
                                 "window": {"start": 0, "end": 1000, "min": 0, "max": 65535}}],
                   "rdefs": {"defaultT": 0, "defaultZ": 0, "model": "greyscale"}}
 
 
-def biomero_argv(config: Path, data_path: PurePath, **user_params) -> list[str]:
-    """The container arguments BIOMERO's own code produces for a bilayers workflow.
+def slurm_argv(config: Path, data_path: PurePath, **user_params) -> list[str]:
+    """The container arguments the Slurm client's own code produces for a bilayers workflow.
 
-    Uses BIOMERO's descriptor parser, parameter filtering, folder flags and env-var
+    Uses the Slurm client's descriptor parser, parameter filtering, folder flags and env-var
     rendering, then expands the job template's "$VAR" references like bash would.
-    ``data_path`` is BIOMERO's ``$DATA_PATH`` (folders are ``<data_path>/data/in|out``).
+    ``data_path`` is the Slurm client's ``$DATA_PATH`` (folders are ``<data_path>/data/in|out``).
     """
     from biomero.schema_parsers import WorkflowDescriptorParser
     from biomero.slurm_client import SlurmClient
@@ -37,7 +37,7 @@ def biomero_argv(config: Path, data_path: PurePath, **user_params) -> list[str]:
 
 
 def add_omero_metadata(store: Path, channels: int = 1) -> None:
-    """Add the omero rendering block OMERO exports include to an OME-Zarr store."""
+    """Add the OME-NGFF "omero" rendering block exported images include to an OME-Zarr store."""
     attrs_path = store / ".zattrs"
     attrs = json.loads(attrs_path.read_text())
     [channel] = OMERO_METADATA["channels"]
@@ -46,7 +46,7 @@ def add_omero_metadata(store: Path, channels: int = 1) -> None:
 
 
 def write_sample_input(folder: Path, as_zarr: bool = True) -> list[Path]:
-    """A small 2D image with two objects, as BIOMERO provides it (OME-Zarr by default)."""
+    """A small 2D image with two objects, as the Slurm client provides it (OME-Zarr by default)."""
     import numpy as np
     import tifffile
 

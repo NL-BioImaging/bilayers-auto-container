@@ -7,7 +7,7 @@ import yaml
 
 from bilayers_auto import BilayersSpec, run
 from bilayers_auto.conversion import allowed_outputs, find_images, output_target
-from conftest import biomero_argv
+from conftest import slurm_argv
 
 
 @pytest.fixture
@@ -19,13 +19,13 @@ def spec(config_path, python_cli_command):
 
 @pytest.mark.filterwarnings("error::UserWarning:fair_metadata_integration")
 def test_zarr_in_declared_tiff_out_with_ro_crate(spec, config_path, zarr_folder):
-    """BIOMERO gives OME-Zarr; the TIFF tool runs on converted input (required: it reads TIFF only); its TIFF
+    """The Slurm client gives OME-Zarr; the TIFF tool runs on converted input (required: it reads TIFF only); its TIFF
     labels are not converted back, as the workflow declares TIFF output.
 
     The run's values are in parameters.yaml under their sections, as the config has them, so the crate
     raises no warning about values the workflow lacks."""
     data_path = zarr_folder.parents[1]
-    argv = biomero_argv(config_path, data_path, threshold_method="otsu", min_diameter=1, max_diameter=50)
+    argv = slurm_argv(config_path, data_path, threshold_method="otsu", min_diameter=1, max_diameter=50)
     assert run(argv, spec=spec) == 0
     out = data_path / "data" / "out"
     assert [path.name for path in find_images(out)] == ["blobs_output.tiff"]
@@ -46,9 +46,9 @@ def test_zarr_in_declared_tiff_out_with_ro_crate(spec, config_path, zarr_folder)
     values = yaml.safe_load((out / "parameters.yaml").read_text())
     assert values["input-args"] == {"threshold_method": "otsu", "min_diameter": 1, "max_diameter": 50}
     assert set(values) == {"input-args", "output-args"}
-    # the input is referenced, not copied: BIOMERO would import it again from data/out
+    # the input is referenced, not copied: it would be imported again from data/out
     assert not (out / "in").exists()
-    assert not list(data_path.glob("data/biomero-work-*"))  # staging removed
+    assert not list(data_path.glob("data/bilayers-work-*"))  # staging removed
 
 
 def test_staging_folder_is_not_hidden(spec, tmp_path, tiff_folder):
@@ -65,14 +65,14 @@ def test_staging_folder_is_not_hidden(spec, tmp_path, tiff_folder):
 
 def test_ro_crate_with_input_copy(spec, config_path, zarr_folder):
     data_path = zarr_folder.parents[1]
-    argv = biomero_argv(config_path, data_path, min_diameter=1, max_diameter=50)
+    argv = slurm_argv(config_path, data_path, min_diameter=1, max_diameter=50)
     assert run(argv, spec=spec, ro_crate_input="copy") == 0
     assert (data_path / "data" / "out" / "in" / "blobs.ome.zarr").is_dir()
 
 
 def test_output_zipped_without_compression(spec, config_path, zarr_folder):
     data_path = zarr_folder.parents[1]
-    argv = biomero_argv(config_path, data_path, min_diameter=1, max_diameter=50)
+    argv = slurm_argv(config_path, data_path, min_diameter=1, max_diameter=50)
     assert run(argv, spec=spec, zip_output=True) == 0
     out = data_path / "data" / "out"
     assert [path.name for path in out.iterdir()] == ["classical_segmentation.zip"]
@@ -87,7 +87,7 @@ def test_tiff_in_tiff_out(spec, config_path, tmp_path, tiff_folder):
     data_path = tmp_path / "job"
     (data_path / "data").mkdir(parents=True)
     tiff_folder.rename(data_path / "data" / "in")
-    argv = biomero_argv(config_path, data_path, min_diameter=1, max_diameter=50)
+    argv = slurm_argv(config_path, data_path, min_diameter=1, max_diameter=50)
     assert run(argv, spec=spec, ro_crate=False) == 0
     out = data_path / "data" / "out"
     labels = tifffile.imread(out / "blobs_output.tiff")
@@ -98,8 +98,8 @@ def test_output_format_override(spec, config_path, tmp_path, tiff_folder, monkey
     data_path = tmp_path / "job"
     (data_path / "data").mkdir(parents=True)
     tiff_folder.rename(data_path / "data" / "in")
-    monkeypatch.setenv("BIOMERO_OUTPUT_FORMAT", "zarr")
-    argv = biomero_argv(config_path, data_path, min_diameter=1, max_diameter=50)
+    monkeypatch.setenv("OUTPUT_FORMAT", "zarr")
+    argv = slurm_argv(config_path, data_path, min_diameter=1, max_diameter=50)
     assert run(argv, spec=spec, ro_crate=False) == 0
     assert [path.name for path in find_images(data_path / "data" / "out")] == ["blobs_output.ome.zarr"]
 
@@ -130,7 +130,7 @@ def test_tool_formats_narrow_what_the_workflow_accepts(spec, tmp_path, tiff_fold
     """The workflow accepts OME-Zarr and TIFF, the tool reads TIFF: only the OME-Zarr is converted."""
     spec.inputs["input_images"]["format"] = ["ometiff", "omezarr"]
     if env:
-        monkeypatch.setenv("BIOMERO_TOOL_FORMATS", env)
+        monkeypatch.setenv("TOOL_FORMATS", env)
     seen = {}
 
     def tool(ctx):

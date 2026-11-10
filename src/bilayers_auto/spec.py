@@ -4,7 +4,7 @@ Loading and command generation reuse bilayers' own parse/cli_generator modules
 (vendored unmodified), validation reuses the LinkML schema from bilayers-schema.
 What is added here is resolving the values of one run, from:
 
-* command-line arguments, as BIOMERO passes them (``--<cli_tag>="<value>"``,
+* command-line arguments, as the Slurm client passes them (``--<cli_tag>="<value>"``,
   folder inputs/outputs set to ``data/in``/``data/out``), as bilayers' interfaces
   pass them (``--tag value`` / bare checkbox flags), or BIAFLOWS-style
   (``--infolder --outfolder --gtfolder --local -nmc --<name> value``);
@@ -35,7 +35,7 @@ FALSE_STRINGS = {"false", "0", "no", "n", "off", ""}
 # BIAFLOWS calling convention, accepted when the spec does not use these flags itself
 BIAFLOWS_FOLDER_FLAGS = {"--infolder": "inputs", "--outfolder": "outputs", "--gtfolder": None}
 BIAFLOWS_SWITCHES = ("--local", "-nmc")
-PARAMS_FILE_FLAGS = ("--params", "--biomero-params")
+PARAMS_FILE_FLAGS = ("--params", "--bilayers-params")
 
 
 class SpecError(ValueError):
@@ -123,7 +123,7 @@ class BilayersSpec:
         return validate_config(self.path)
 
     def output_dir_params(self) -> list[str]:
-        """Parameters BIOMERO sets to the output folder (``output_dir_set: true``)."""
+        """Parameters the Slurm client sets to the output folder (``output_dir_set: true``)."""
         return [name for name, item in self.parameters.items() if item.get("output_dir_set")]
 
     def folder_inputs(self) -> list[str]:
@@ -294,7 +294,7 @@ class BilayersSpec:
     def command(self, values: RunValues, cli_command: str | Sequence[str] | None = None) -> list[str]:
         """The tool command (argv) for these values, built by bilayers' generate_cli_command.
 
-        Outputs with a cli_tag are included in cli_order, the way BIOMERO passes them
+        Outputs with a cli_tag are included in cli_order, the way the Slurm client passes them
         (bilayers itself only puts inputs, parameters and hidden args on the command line).
         """
         config = copy.deepcopy(self.parsed)

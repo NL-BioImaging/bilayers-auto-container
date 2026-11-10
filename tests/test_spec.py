@@ -6,7 +6,7 @@ import pytest
 import yaml
 
 from bilayers_auto import BilayersSpec, SpecError, validate_config
-from conftest import biomero_argv
+from conftest import slurm_argv
 
 VENDOR = Path(__file__).resolve().parents[1] / "src" / "bilayers_auto" / "_vendor" / "bilayers"
 
@@ -36,8 +36,8 @@ def test_defaults(config_path):
     assert values.outputs == {"segmented_images": Path("/data/out")}
 
 
-def test_biomero_arguments(config_path, tmp_path):
-    argv = biomero_argv(config_path, tmp_path, threshold_method="li", min_diameter=2.5)
+def test_slurm_arguments(config_path, tmp_path):
+    argv = slurm_argv(config_path, tmp_path, threshold_method="li", min_diameter=2.5)
     values = BilayersSpec(config_path).parse_args(argv)
     assert values.inputs["input_images"] == tmp_path / "data" / "in"
     assert values.params["save_dir"] == (tmp_path / "data" / "out").as_posix()
@@ -94,7 +94,7 @@ def test_checkbox_forms(tmp_path, config_path):
     path.write_text(yaml.safe_dump(config))
     spec = BilayersSpec(path)
     assert spec.parse_args(["--invert"]).params["invert"] is True  # bilayers interfaces
-    assert spec.parse_args(["--invert=False"]).params["invert"] is False  # BIOMERO
+    assert spec.parse_args(["--invert=False"]).params["invert"] is False  # the Slurm client
     assert spec.parse_args(["--invert=True"]).params["invert"] is True
     values = spec.parse_args(["--invert"])
     assert "--invert" in spec.command(values)

@@ -1,6 +1,6 @@
 name: Docker image
 
-# BIOMERO picks the image version from the repository tag, so publish on release.
+# The Slurm client picks the image version from the repository tag, so publish on release.
 on:
   release:
     types: [published]

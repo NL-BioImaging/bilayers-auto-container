@@ -5,14 +5,14 @@ the closest and combine.
 
 ## Existing bilayers workflow (`config.yaml` with `docker_image`, `exec_function`)
 
-Reuse its `config.yaml`; check folder inputs/outputs against the BIOMERO contract (an
-output folder BIOMERO can set), fix types the schema rejects (`bilayers-auto validate`).
-If its image entrypoint is already a BIOMERO-aware wrapper, it may not need this template.
+Reuse its `config.yaml`; check folder inputs/outputs against the Slurm contract (an
+output folder the Slurm client can set), fix types the schema rejects (`bilayers-auto validate`).
+If its image entrypoint is already a Slurm-aware wrapper, it may not need this template.
 
 ## BIAFLOWS / NEUBIAS workflow (`descriptor.json` with `schema-version: cytomine-0.1`, `wrapper.py`)
 
 - Draft: `bilayers-auto from-biaflows <descriptor URL or path> -o config.yaml`, then delete
-  `descriptor.json` (BIOMERO would otherwise pick it before `config.yaml`).
+  `descriptor.json` (the Slurm client would otherwise pick it before `config.yaml`).
   (`--input-format`/`--output-format` from what the wrapper reads/writes). Then fill in
   citations, license, image flags (`depth`, `timepoints`, ...), output `subtype`, labels.
 - Keep the original wrapper and its pipeline/macros unchanged in `/app/biaflows/`; install
@@ -35,17 +35,17 @@ A Fractal task is a Python function run as `<python> <task>.py --args-json <file
   `<argument>__<field>` parameters (e.g. `channel__label`), empty values are left out so the
   task's defaults and validators apply. Then prune: drop Fractal-only options (e.g. a channel
   `wavelength_id` when the user picks channels by name; `overwrite_input`, since the task runs on
-  a copy anyway) and write labels/descriptions for OMERO users.
+  a copy anyway) and write labels/descriptions for users.
 - Draft from the manifest of the **release you pin**, not `main`: tasks and their arguments
   change between releases (read the task function at that tag).
 - Hook: `fractal_tool([TASK_PYTHON, "-m", "<package>.<task module>"], kind=..., prepare=...,
   exclude=[...])` (`bilayers_auto.fractal`). It copies each input image into the output folder
   (tasks write into the image they are given), runs the task on the copies, renames new images
   to names ending in `.zarr` (tasks often write `<zarr_url><suffix>`, e.g. `a.ome.zarr_fused`,
-  which BIOMERO would not import), and removes the copies when the task reported new images
+  which would not be imported), and removes the copies when the task reported new images
   (`image_list_updates`), else keeps them (changed in place).
-- **What OMERO exports lack** (BIOMERO gives single OME-Zarr images exported from OMERO, not
-  Fractal's HCS plates). Read the task code for each of these; test with an OMERO-like copy of
+- **What the exported images lack** (the Slurm client gives single exported OME-Zarr images, not
+  Fractal's HCS plates). Read the task code for each of these; test with an export-like copy of
   the test data (Fractal tables and `wavelength_id`s removed):
   - `omero.channels[].wavelength_id`: fractal-tasks-core requires it; `fractal_tool` adds
     `C01`, `C02`, ... when missing (`wavelength_ids=True`). Let users pick channels by label.
@@ -71,10 +71,10 @@ A Fractal task is a Python function run as `<python> <task>.py --args-json <file
 - Test data: Fractal task packages usually have tests with small OME-Zarr data (`tests/data`)
   or download it (Zenodo via pooch). Without expected outputs in the source, make them with a
   **reference run of the original task**, called directly (`--args-json`), outside bilayers_auto,
-  and check the container reproduces it; do the same for the OMERO-like input (the reference
+  and check the container reproduces it; do the same for the export-like input (the reference
   then gets the same rebuilt tables). `--out-json` must not exist yet (the task refuses to run).
 - Slurm: `meta_parallel`/`meta_non_parallel` in the manifest (cpus, memory) are what the task
-  needs per call; note them in the README for the BIOMERO Slurm settings.
+  needs per call; note them in the README for the Slurm settings.
 
 ### Fractal workflow (JSON: an export from fractal-web, or a workflow template)
 
@@ -102,10 +102,10 @@ and a template from the Fractal website (the workflow under `data`, with `name`,
   and objects as JSON text). Prune to what users should tune (channel, thresholds, label/table
   names); the plan keeps the workflow's values for the rest.
 - The plan leaves out **converters of raw microscope data** (Cellvoyager, Harmony, IC6000, ...;
-  task types `converter_*`, or by name in older manifests, which have no types): BIOMERO gives
+  task types `converter_*`, or by name in older manifests, which have no types): the Slurm client gives
   OME-Zarr. It keeps **Import OME-Zarr** (a converter of an existing OME-Zarr: `zarr_dir` +
-  `zarr_name`), run per image: it adds the image/grid ROI tables and channel metadata OMERO
-  exports lack, so later steps can use `image_ROI_table` (set their `roi_table` to it where the
+  `zarr_name`), run per image: it adds the image/grid ROI tables and channel metadata the
+  exported images lack, so later steps can use `image_ROI_table` (set their `roi_table` to it where the
   workflow used `well_ROI_table`/`FOV_ROI_table`). It flags plate/multiplexing steps (HCS plate,
   `reference_acquisition`): replace them with the package's image-level task where there is one
   (e.g. `Project Image (HCS Plate)` -> `Project Image`), or leave them out and say so.
@@ -121,9 +121,9 @@ and a template from the Fractal website (the workflow under `data`, with `name`,
 - In the survey of 14 real workflows (Fractal templates, the Fractal paper, lab repositories):
   almost all start with a raw-data converter; 9 of 14 have plate/multiplexing steps; image-level
   segmentation/measurement chains (e.g. Project Image, Threshold Segmentation, Measure Features
-  of fractal-tasks-core 2.0) run on BIOMERO's images unchanged.
+  of fractal-tasks-core 2.0) run on the Slurm client's images unchanged.
 - Test like a single task: a reference run of the same steps called directly
-  (`python -m <module> --args-json`) on the same (OMERO-like) input, compared with the container's
+  (`python -m <module> --args-json`) on the same (export-like) input, compared with the container's
   output (image, labels, tables).
 
 ## Galaxy tool or workflow (Tool Shed XML wrapper, or a `.ga` workflow; e.g. https://usegalaxy.org/workflows/list_published)
@@ -165,9 +165,9 @@ container runs the tools' scripts/programs directly, without Galaxy. Do not use 
   `dark_bg`, `block_size` of the threshold step), which have no effect and must not become
   parameters. Then prune to what a user should tune (e.g. a filter sigma, a threshold method);
   keep the rest fixed in `wrapper.py`, with the workflow's values. Parameter names start with
-  a letter (BIOMERO also makes shell variables of them; steps named like `2d_...` become `s2d_...`).
+  a letter (the Slurm client also makes shell variables of them; steps named like `2d_...` become `s2d_...`).
 - **Which steps**: keep the analysis; drop steps that only make outputs for viewing in Galaxy
-  (contrast enhancement and conversion to PNG for an overlay, overlays): OMERO shows the labels
+  (contrast enhancement and conversion to PNG for an overlay, overlays): the image viewer shows the labels
   over the image itself, and a PNG would be imported as another image. Say which steps are left
   out (README, notes).
 - **Environment: one per tool**, as Galaxy resolves each tool's `<requirements>` into its own
@@ -187,7 +187,7 @@ container runs the tools' scripts/programs directly, without Galaxy. Do not use 
   rendering as small functions per step and test them against the template for the default
   and each conditional branch.
 - **Formats**: a wrapper's input `format` list says what Galaxy passes it, not that the pinned
-  environment reads every variant: test each step on OMERO-like OME-Zarr in the container. Keep
+  environment reads every variant: test each step on export-like OME-Zarr in the container. Keep
   the workflow's pins (do not upgrade a tool's requirements to make it read a format); if a
   pinned step cannot read OME-Zarr (e.g. giatools 0.6.0: `KeyError: 'unit'` on the channel axis,
   which OME-NGFF gives no unit), declare `format: [tiff]` so bilayers_auto converts (required by
@@ -196,13 +196,13 @@ container runs the tools' scripts/programs directly, without Galaxy. Do not use 
   refuse that (scikit-image 0.14: "Only 2-D and 3-D images supported"): drop singleton T/C/Z
   axes between steps in the wrapper. Outputs stay in the format the tools write (TIFF; tables as
   TSV) when the workflow declares it. One channel: imaging tools often refuse multi-channel
-  images, which OMERO images often are; add a channel parameter and extract it (only when the
+  images, which exported images often are; add a channel parameter and extract it (only when the
   image has more than one).
 - **Test data and expected outputs**: the workflow's IWC test (`<workflow>-tests.yml`: inputs,
   expected outputs, how they are compared, e.g. `image_diff` with `metric: iou`, `diff` with
   `lines_diff`); these come from Galaxy, so they are independent reference results. Name the
   expected files as the container writes them. Also the tools' `<tests>` (`test-data/`). Test
-  the IWC input as is, as OMERO-like OME-Zarr, and multi-channel with the channel parameter.
+  the IWC input as is, as export-like OME-Zarr, and multi-channel with the channel parameter.
 - **Local runs** need the per-tool environments (`GALAXY_ENVS`); on Windows rely on the
   container test, and create them in CI from the lock files (`mamba-org/setup-micromamba`).
 - **Credit**: the workflow's `creator` (with ORCID), `license` and IWC location, the tools'
@@ -235,4 +235,4 @@ container runs the tools' scripts/programs directly, without Galaxy. Do not use 
 ## Container image only
 
 Inspect the image's documentation and entrypoint for its CLI; write `config.yaml` for that
-CLI and build `FROM` that image, adding the BIOMERO layer.
+CLI and build `FROM` that image, adding the bilayers layer.

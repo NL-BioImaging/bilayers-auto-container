@@ -26,8 +26,8 @@ def write_ro_crate(config_path: Path, input_paths: Sequence[Path], output_paths:
     The crate holds ``ro-crate-metadata.json``, the bilayers config (the workflow, as
     mainEntity), the run's ``parameters`` written to ``parameters.yaml`` (about the run), and
     copies of each output, the run's result. The inputs are its object, referenced by their
-    file URI unless ``copy_inputs``: BIOMERO imports every image found in the output folder,
-    so a copy would re-import the input into OMERO. The run has its name, start and end
+    file URI unless ``copy_inputs``: every image found in the output folder is imported,
+    so a copy would re-import the input. The run has its name, start and end
     time, and the ``software`` implementing the workflow (the container image, see ``software_of``).
     """
     from fair_metadata_integration import create_ro_crate
@@ -53,7 +53,7 @@ def software_of(spec: BilayersSpec) -> dict[str, str] | None:
 
 
 def run_name(spec: BilayersSpec) -> str:
-    """The run's name: the workflow and, on Slurm (BIOMERO), its job id."""
+    """The run's name: the workflow and, on Slurm, its job id."""
     name = spec.parsed.get("algorithm_folder_name") or Path(spec.path).parent.name
     job = os.environ.get("SLURM_JOB_ID")
     return f"{name} (Slurm job {job})" if job else f"{name} run"

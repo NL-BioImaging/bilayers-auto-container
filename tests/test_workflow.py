@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from bilayers_auto import BilayersSpec, validate_config
-from bilayers_auto.cli import _biomero_check
-from conftest import ROOT, biomero_argv
+from bilayers_auto.cli import _slurm_check
+from conftest import ROOT, slurm_argv
 
 CONFIGS = [path for path in [ROOT / "config.yaml", *sorted(ROOT.glob("examples/*/config.yaml"))] if path.exists()]
 DOCKERFILES = [path for path in [ROOT / "Dockerfile", *sorted(ROOT.glob("examples/*/Dockerfile"))] if path.exists()]
@@ -22,15 +22,15 @@ def test_config_is_valid_bilayers(config):
 
 
 @pytest.mark.parametrize("config", CONFIGS, ids=_id)
-def test_biomero_can_parse_config(config):
-    assert _biomero_check(str(config)) == []
+def test_slurm_can_parse_config(config):
+    assert _slurm_check(str(config)) == []
 
 
 @pytest.mark.parametrize("config", CONFIGS, ids=_id)
-def test_biomero_arguments_resolve(config, tmp_path):
-    """The arguments BIOMERO generates (with defaults) are accepted and produce a tool command."""
+def test_slurm_arguments_resolve(config, tmp_path):
+    """The arguments the Slurm client generates (with defaults) are accepted and produce a tool command."""
     spec = BilayersSpec(config)
-    values = spec.parse_args(biomero_argv(config, tmp_path))
+    values = spec.parse_args(slurm_argv(config, tmp_path))
     for name in spec.folder_inputs():
         if not spec.inputs[name].get("optional"):
             assert values.inputs[name] == tmp_path / "data" / "in"
@@ -48,7 +48,7 @@ def _instructions(dockerfile: Path, keyword: str) -> list[str]:
 @pytest.mark.parametrize("dockerfile", DOCKERFILES, ids=_id)
 def test_dockerfile_uses_wrapper_entrypoint(dockerfile):
     entrypoint = _instructions(dockerfile, "ENTRYPOINT")
-    assert entrypoint and "wrapper.py" in entrypoint[-1], "BIOMERO runs the image entrypoint; it must be wrapper.py"
+    assert entrypoint and "wrapper.py" in entrypoint[-1], "the Slurm client runs the image entrypoint; it must be wrapper.py"
 
 
 @pytest.mark.parametrize("dockerfile", DOCKERFILES, ids=_id)
@@ -68,5 +68,5 @@ def test_no_user_switch(dockerfile):
 
 
 def test_no_descriptor_shadows_config():
-    """BIOMERO reads descriptor.json/descriptor.yaml before config.yaml."""
+    """The Slurm client reads descriptor.json/descriptor.yaml before config.yaml."""
     assert not [name for name in ("descriptor.json", "descriptor.yaml") if (ROOT / name).exists()]

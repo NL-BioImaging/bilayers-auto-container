@@ -6,7 +6,7 @@ import yaml
 
 from bilayers_auto import BilayersSpec, run, validate_config
 from bilayers_auto.biaflows import bilayers_from_descriptor, biaflows_tool, descriptor_from_bilayers
-from conftest import DATA, biomero_argv
+from conftest import DATA, slurm_argv
 
 DESCRIPTOR = json.loads((DATA / "biaflows_descriptor.json").read_text())
 
@@ -34,7 +34,7 @@ def test_descriptor_round_trip(config_path):
 
 
 def test_biaflows_tool_gets_biaflows_arguments(tmp_path, tiff_folder):
-    """A BIAFLOWS wrapper behind a bilayers spec, called by BIOMERO as a bilayers workflow."""
+    """A BIAFLOWS wrapper behind a bilayers spec, called by the Slurm client as a bilayers workflow."""
     path = write_config(tmp_path, bilayers_from_descriptor(DESCRIPTOR))
     record = tmp_path / "argv.json"
     fake_wrapper = tmp_path / "wrapper.py"
@@ -47,7 +47,7 @@ def test_biaflows_tool_gets_biaflows_arguments(tmp_path, tiff_folder):
     data = tmp_path / "job"
     (data / "data").mkdir(parents=True)
     tiff_folder.rename(data / "data" / "in")
-    argv = biomero_argv(path, data, size_smoothing_filter=3)
+    argv = slurm_argv(path, data, size_smoothing_filter=3)
     assert run(argv, spec=path, tool=biaflows_tool([sys.executable, str(fake_wrapper)]), ro_crate=False) == 0
     received = json.loads(record.read_text())
     assert received[:2] == ["--infolder", str(data / "data" / "in")]

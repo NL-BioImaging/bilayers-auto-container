@@ -191,7 +191,7 @@ def test_galaxy_workflow_draft(tmp_path):
     assert [p["name"] for p in galaxy.bilayers_from_workflow(WORKFLOW, step_params=False)["parameters"]] == ["sigma"]
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(config, sort_keys=False))
-    assert main(["validate", str(path), "--biomero"]) == 0
+    assert main(["validate", str(path), "--slurm"]) == 0
 
 
 def test_cli_drafts(tmp_path):
@@ -201,7 +201,7 @@ def test_cli_drafts(tmp_path):
     for args in (["from-fractal", str(tmp_path / "manifest.json")], ["from-galaxy", str(tmp_path / "tool.xml")],
                  ["from-galaxy", str(tmp_path / "wf.ga")]):
         assert main([*args, "-o", str(tmp_path / "config.yaml")]) == 0
-        assert main(["validate", str(tmp_path / "config.yaml"), "--biomero"]) == 0
+        assert main(["validate", str(tmp_path / "config.yaml"), "--slurm"]) == 0
 
 
 def test_galaxy_workflow_draft_with_tool_wrappers():
@@ -227,4 +227,4 @@ def test_cli_galaxy_workflow_with_tool_wrappers(tmp_path, capsys):
     assert "stale tool_state" in err and "dark_bg" in err  # not a parameter of the pinned wrapper
     names = [p["name"] for p in yaml.safe_load((tmp_path / "config.yaml").read_text())["parameters"]]
     assert not any(name.endswith("dark_bg") for name in names)
-    assert main(["validate", str(tmp_path / "config.yaml"), "--biomero"]) == 0
+    assert main(["validate", str(tmp_path / "config.yaml"), "--slurm"]) == 0

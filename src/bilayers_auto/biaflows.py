@@ -2,7 +2,7 @@
 
 * :func:`biaflows_tool` runs an existing BIAFLOWS/NEUBIAS ``wrapper.py`` (which parses
   its arguments with ``BiaflowsJob.from_cli``) from a bilayers-described container,
-  calling it the way BIOMERO calls BIAFLOWS workflows.
+  calling it the way the Slurm client calls BIAFLOWS workflows.
 * :func:`bilayers_from_descriptor` drafts a bilayers config from a BIAFLOWS
   ``descriptor.json`` (cytomine-0.1), e.g. when wrapping a NEUBIAS workflow.
 * :func:`descriptor_from_bilayers` writes a BIAFLOWS descriptor for deployments

@@ -27,7 +27,7 @@ STATE_SKIP = {"chromInfo", "__page__", "__rerun_remap_job_id__", "__input_ext", 
 
 
 def _identifier(text: str) -> str:
-    """A parameter-safe name; it starts with a letter, as BIOMERO also uses names as shell variables."""
+    """A parameter-safe name; it starts with a letter, as the Slurm client also uses names as shell variables."""
     name = re.sub(r"\W+", "_", text).strip("_").lower() or "step"
     return f"s{name}" if name[0].isdigit() else name
 

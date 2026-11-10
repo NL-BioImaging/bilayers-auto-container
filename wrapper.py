@@ -1,6 +1,6 @@
-"""BIOMERO container entrypoint.
+"""bilayers container entrypoint.
 
-Resolves the values BIOMERO passes (see config.yaml), converts OME-Zarr/TIFF where the
+Resolves the values the Slurm client passes (see config.yaml), converts OME-Zarr/TIFF where the
 tool needs it, runs ``exec_function.cli_command`` and writes RO-Crate metadata.
 
 To run something other than the spec's command line, pass a tool function, e.g.::
