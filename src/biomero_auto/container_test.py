@@ -66,7 +66,7 @@ def run_command(runtime: str, image: str, platform: str, data_folder: Path, args
 def container_test(config: Path, *, context: Path | None = None, runtime: str = "docker",
                    sample: Path | None = None, params: dict | None = None, build: bool = True,
                    keep: Path | None = None, expected: Path | None = None, synthetic: Synthetic | None = None,
-                   min_dice: float = 0.9, rtol: float = 1e-3) -> list[Path]:
+                   min_dice: float = 0.9, rtol: float = 1e-3, mode: str = "auto") -> list[Path]:
     """Build the image, run it on a BIOMERO-style job and check the results; returns the outputs.
 
     The input is ``sample`` (a folder of images), else ``synthetic`` images (whose ground-truth
@@ -109,7 +109,7 @@ def container_test(config: Path, *, context: Path | None = None, runtime: str = 
         logger.warning("No %s in the output", CRATE_METADATA)
     logger.info("Outputs in %s: %s", data / "out", [path.name for path in outputs])
     if expected is not None:
-        results = compare_outputs(unpack(data / "out", job), Path(expected), min_dice=min_dice, rtol=rtol)
+        results = compare_outputs(unpack(data / "out", job), Path(expected), min_dice=min_dice, rtol=rtol, mode=mode)
         for result in results:
             logger.info("%s", result)
         failed = [result for result in results if not result.ok]

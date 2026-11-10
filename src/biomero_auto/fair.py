@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import zipfile
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
@@ -16,22 +18,45 @@ CRATE_METADATA = "ro-crate-metadata.json"
 
 
 def write_ro_crate(config_path: Path, input_paths: Sequence[Path], output_paths: Sequence[Path], dest_folder: Path,
-                   copy_inputs: bool = False, parameters: Mapping[str, Any] | None = None) -> Path:
+                   copy_inputs: bool = False, parameters: Mapping[str, Any] | None = None,
+                   run_name: str | None = None, start_time: datetime | None = None, end_time: datetime | None = None,
+                   software: Mapping[str, str] | None = None) -> Path:
     """Make ``dest_folder`` the run's RO-Crate, with fair-metadata-integration.
 
     The crate holds ``ro-crate-metadata.json``, the bilayers config (the workflow, as
     mainEntity), the run's ``parameters`` written to ``parameters.yaml`` (about the run), and
     copies of each output, the run's result. The inputs are its object, referenced by their
     file URI unless ``copy_inputs``: BIOMERO imports every image found in the output folder,
-    so a copy would re-import the input into OMERO.
+    so a copy would re-import the input into OMERO. The run has its name, start and end
+    time, and the ``software`` implementing the workflow (the container image, see ``software_of``).
     """
     from fair_metadata_integration import create_ro_crate
 
     create_ro_crate(dest_path=str(dest_folder), workflow_schema_filename=str(config_path),
                     input_paths=[str(path) for path in input_paths], output_paths=[str(path) for path in output_paths],
-                    copy_inputs=copy_inputs, copy_outputs=True, parameters=parameters)
+                    copy_inputs=copy_inputs, copy_outputs=True, parameters=parameters,
+                    run_name=run_name, start_time=start_time, end_time=end_time, software=software)
     logger.info("RO-Crate written to %s", dest_folder)
     return dest_folder / CRATE_METADATA
+
+
+def software_of(spec: BilayersSpec) -> dict[str, str] | None:
+    """The container image implementing the workflow (the config's ``docker_image``), as crate software."""
+    docker = spec.parsed.get("docker_image") or {}
+    if not docker.get("org") or not docker.get("name"):
+        return None
+    image = f"{docker['org']}/{docker['name']}"
+    software = {"name": image, "url": f"https://hub.docker.com/r/{image}"}
+    if docker.get("tag"):
+        software["version"] = str(docker["tag"])
+    return software
+
+
+def run_name(spec: BilayersSpec) -> str:
+    """The run's name: the workflow and, on Slurm (BIOMERO), its job id."""
+    name = spec.parsed.get("algorithm_folder_name") or Path(spec.path).parent.name
+    job = os.environ.get("SLURM_JOB_ID")
+    return f"{name} (Slurm job {job})" if job else f"{name} run"
 
 
 def run_parameters(spec: BilayersSpec, values: RunValues) -> dict[str, Any]:

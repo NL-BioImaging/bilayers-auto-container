@@ -108,3 +108,17 @@ def test_cli_synthetic_and_compare(tmp_path, capsys):
     assert main(["compare", str(tmp_path / "expected"), str(tmp_path / "expected")]) == 0
     assert "OK" in capsys.readouterr().out
     assert main(["compare", str(tmp_path / "in"), str(tmp_path / "expected")]) == 1  # noisy images are not labels
+
+
+def test_intensity_images_are_not_mistaken_for_labels():
+    from biomero_auto.compare import is_labels
+
+    rng = np.random.default_rng(0)
+    intensities = rng.integers(100, 4000, size=(64, 64), dtype=np.uint16)
+    labels = synthetic_image(Synthetic(objects=3))[1].squeeze()
+    assert is_labels(labels) and not is_labels(intensities) and not is_labels(intensities.astype(np.float32))
+    shifted = intensities.copy()
+    shifted[:, 0] = 0  # same foreground almost everywhere, different values: not a match as intensities
+    assert not compare_images(shifted, intensities)[0]
+    assert compare_images((labels > 0).astype(np.uint8), labels, mode="labels")[0]
+    assert not compare_images(labels.astype(np.uint16) * 7, labels, mode="intensities")[0]

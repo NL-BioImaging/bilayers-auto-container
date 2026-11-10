@@ -32,8 +32,9 @@ repository's `config.yaml` directly at the configured tag. It looks for `descrip
    when the workflow accepts more formats than the tool reads), converts them (biomero-converter)
    into a staging folder next to `data/out`.
 3. Runs the tool into a staging folder.
-4. Converts outputs (`BIOMERO_OUTPUT_FORMAT`: `auto` gives OME-Zarr back when OME-Zarr came
-   in and the tool writes TIFF; `zarr`, `tiff`, `keep`).
+4. Converts output images only when required (`BIOMERO_OUTPUT_FORMAT`: `auto` converts images
+   in a format the output `format` does not list, to one it lists, OME-Zarr first; `zarr`/`tiff`
+   force a format; `keep` never converts).
 5. FAIRification: `create_ro_crate` (fair-metadata-integration) writes the Workflow RO-Crate
    into `data/out`: `ro-crate-metadata.json`, the config, the run's values (`parameters.yaml`,
    by the config's sections) and the outputs; the input is

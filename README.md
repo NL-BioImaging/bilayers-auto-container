@@ -37,7 +37,8 @@ to TIFF for it and its TIFF labels back to OME-Zarr.
 3. **Runs the tool**: by default `exec_function.cli_command` with the arguments built by bilayers'
    own `generate_cli_command`; or `biaflows_tool(...)` for an existing BIAFLOWS wrapper
    (`biaflows.py`); or any `tool(ctx)` function.
-4. **Converts outputs** back (`auto`: OME-Zarr in → OME-Zarr out).
+4. **Converts outputs** only when the workflow requires it (`auto`: images in a format the output
+   `format` does not list are converted to one it lists; `BIOMERO_OUTPUT_FORMAT=zarr|tiff|keep`).
 5. **FAIRifies the output folder** (`fair.py`): fair-metadata-integration makes it a Workflow RO-Crate
    (`ro-crate-metadata.json`, the config, the run's values in `parameters.yaml`, the outputs; the input is
    referenced by its `file://` URI, not copied).
@@ -72,6 +73,8 @@ biomero-auto validate config.yaml [--biomero]     # bilayers LinkML schema (+ BI
 biomero-auto parse config.yaml -- <args>          # resolved values as JSON
 biomero-auto command config.yaml -- <args>        # the tool command line
 biomero-auto from-biaflows <descriptor.json|URL>  # draft config.yaml for a BIAFLOWS workflow
+biomero-auto from-fractal <manifest|workflow>     # draft config.yaml for a Fractal task or workflow (+ fractal_steps.json)
+biomero-auto from-galaxy <tool.xml|wf.ga|URL>     # draft config.yaml for a Galaxy tool or workflow
 biomero-auto to-biaflows config.yaml              # descriptor.json for BIAFLOWS-only deployments
 biomero-auto container-test [config.yaml]         # build the image with Docker and run it like BIOMERO
 biomero-auto synthetic <in> [--expected <dir>]    # synthetic input images + ground-truth labels
@@ -81,7 +84,14 @@ biomero-auto compare <out> <expected>             # compare a workflow's outputs
 `container-test` options: `--sample <folder>` (default: generated OME-Zarr), `--param name=value`,
 `--runtime podman` (default `docker`), `--no-build`, `--keep <job folder>`,
 `--expected <folder>` (compare the outputs with expected ones), `--synthetic` (synthetic input,
-compared with its ground truth), `--min-dice`, `--rtol`.
+compared with its ground truth), `--min-dice`, `--rtol`, `--mode auto|labels|intensities`.
+
+Fractal tasks run with `biomero_auto.fractal.fractal_tool` as the tool in `wrapper.py`: the task is
+called as Fractal calls it (`--args-json`/`--out-json`) on a copy of each input image; new images
+it reports are the output (renamed to end in `.zarr`), and channels get the `wavelength_id`
+Fractal expects. A `prepare` function can add other Fractal metadata OMERO exports lack (ROI tables). `fractal_workflow("fractal_steps.json")` runs a Fractal
+workflow (an export or template, drafted with `from-fractal`) step by step, selecting images by their types
+as Fractal does; converters of raw microscope data are left out, `Import OME-Zarr` adds the ROI tables.
 
 Synthetic images (`synthetic`, or `container-test --synthetic` with the same options prefixed
 `--synthetic-`): `--size`, `--z`, `--t`, `--channels`, `--objects`, `--radius`, `--noise`,
@@ -90,7 +100,8 @@ Images are written as BIOMERO provides them (OME-Zarr by default), their instanc
 files of the same name in the `--expected` folder.
 
 Comparison: each expected file must match an output with the same name (ignoring the image
-format) or whose name starts with it (`a.tif` ~ `a_labels.ome.zarr`). Label images must overlap
+format) or whose name starts with it (`a.tif` ~ `a_labels.ome.zarr`). Label images (integer images
+whose objects are flat: neighbouring foreground pixels share their value) must overlap
 (foreground Dice >= `--min-dice`, default 0.9) and have the same object count (label values may
 differ; a binary mask is compared by overlap only); other images and CSV/TSV numbers must agree
 within `--rtol` (default 1e-3); other files must be identical. RO-Crate metadata is not compared.

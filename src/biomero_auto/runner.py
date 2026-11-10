@@ -8,7 +8,8 @@ Settings can be passed to :func:`run` or overridden with environment variables:
 ``BIOMERO_CONVERT_INPUTS``  convert input images to a format the spec accepts (default ``true``)
 ``BIOMERO_TOOL_FORMATS``    comma-separated image formats the tool reads, when fewer than the spec's
                             input ``format`` (what the workflow accepts); the others are converted
-``BIOMERO_OUTPUT_FORMAT``   ``auto`` (OME-Zarr back if OME-Zarr came in), ``zarr``, ``tiff`` or ``keep``
+``BIOMERO_OUTPUT_FORMAT``   ``auto`` (convert only output images in a format the spec's output ``format``
+                            does not list, to one it lists), ``zarr``, ``tiff`` or ``keep``
 ``BIOMERO_ZARR_FORMAT``     biomero-converter zarr format (default ``omezarr04``)
 ``BIOMERO_RO_CRATE``        make the output folder a Workflow RO-Crate (default ``true``)
 ``BIOMERO_RO_CRATE_INPUT``  ``reference`` the input in the crate (default) or ``copy`` it into the output folder
@@ -29,6 +30,7 @@ import subprocess
 import sys
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -155,30 +157,43 @@ def _run(spec, values, tool, final_outputs, work, settings) -> None:
     image_outputs = [name for name in final_outputs if spec.outputs[name].get("type") == "image"]
     output_formats = set().union(*(conversion.normalize_formats(spec.outputs[name].get("format")) for name in image_outputs))
     target = conversion.output_target(settings["output_format"], input_formats, output_formats) if image_outputs else None
-    # With FAIRification the tool always writes to staging: the RO-Crate is built into the output folder
+    allowed = conversion.allowed_outputs(settings["output_format"], output_formats, target)
+    # With FAIRification the tool always writes to staging: the RO-Crate is built into the output folder.
+    # Without it, the tool writes to the output folder, and images not in an allowed format are converted
+    # there afterwards (auto: only when the workflow requires it), or it writes to staging for a forced format.
     fair = settings["ro_crate"] and bool(tool_inputs)
+    in_place = settings["output_format"] == "auto"
     staging = {}
     for name, final in final_outputs.items():
         final.mkdir(parents=True, exist_ok=True)
-        if fair or (target and name in image_outputs):
+        if fair or (target and name in image_outputs and not in_place):
             staging.setdefault(final, work / "out" / str(len(staging)))
     tool_outputs = {name: staging.get(final, final) for name, final in final_outputs.items()}
     for folder in staging.values():
         folder.mkdir(parents=True, exist_ok=True)
 
+    start_time = datetime.now(timezone.utc)
     tool(RunContext(spec=spec, values=values, inputs=tool_inputs, outputs=tool_outputs, workdir=work))
+    end_time = datetime.now(timezone.utc)
+
+    if target and in_place:
+        for final in dict.fromkeys(final for name, final in final_outputs.items()
+                                   if name in image_outputs and final not in staging):
+            conversion.convert_in_place(final, target, settings["zarr_format"], allowed)
 
     input_paths = [values.inputs[name] for name in spec.folder_inputs() if name in tool_inputs]
     for final, folder in staging.items():
         results = folder
         if target:
             results = work / "results" / folder.name if fair else final
-            conversion.finalize_output(folder, results, target, settings["zarr_format"])
+            conversion.finalize_output(folder, results, target, settings["zarr_format"], allowed)
         if fair:
-            from .fair import run_parameters, write_ro_crate
+            from .fair import run_name, run_parameters, software_of, write_ro_crate
 
             write_ro_crate(spec.path, input_paths, sorted(results.iterdir()) if results.is_dir() else [], final,
-                           copy_inputs=settings["ro_crate_input"] == "copy", parameters=run_parameters(spec, values))
+                           copy_inputs=settings["ro_crate_input"] == "copy", parameters=run_parameters(spec, values),
+                           run_name=run_name(spec), start_time=start_time, end_time=end_time,
+                           software=software_of(spec))
 
     if settings["zip_output"]:
         from .fair import zip_folder

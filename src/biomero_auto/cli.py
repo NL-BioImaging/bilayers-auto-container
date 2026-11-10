@@ -17,13 +17,18 @@ from .sample_data import DTYPES, Synthetic
 from .spec import BilayersSpec, SpecError, validate_config
 
 
-def _read_mapping(source: str) -> dict:
-    """Read a JSON/YAML mapping from a path or URL (GitHub blob URLs are fetched raw)."""
+def _read_text(source: str) -> str:
+    """Read a path or URL (GitHub blob URLs are fetched raw)."""
     if source.startswith(("http://", "https://")):
         url = source.replace("://github.com/", "://raw.githubusercontent.com/").replace("/blob/", "/")
         with urllib.request.urlopen(url) as response:
-            return yaml.safe_load(response.read().decode("utf-8"))
-    return yaml.safe_load(Path(source).read_text(encoding="utf-8"))
+            return response.read().decode("utf-8")
+    return Path(source).read_text(encoding="utf-8")
+
+
+def _read_mapping(source: str) -> dict:
+    """Read a JSON/YAML mapping from a path or URL."""
+    return yaml.safe_load(_read_text(source))
 
 
 def _write(data: dict, output: str | None, as_json: bool) -> None:
@@ -98,6 +103,8 @@ def main(argv: list[str] | None = None) -> int:
                        help="use synthetic images as input; their labels are the expected output unless --expected")
     check.add_argument("--min-dice", type=float, default=0.9, help="minimum foreground Dice for label images")
     check.add_argument("--rtol", type=float, default=1e-3, help="relative tolerance for intensities and numbers")
+    check.add_argument("--mode", choices=("auto", "labels", "intensities"), default="auto",
+                    help="compare images as labels or intensities (default: detect)")
     _synthetic_options(check, prefix="synthetic-")
 
     synthetic = commands.add_parser("synthetic", help="write synthetic input images and their ground-truth labels")
@@ -114,6 +121,35 @@ def main(argv: list[str] | None = None) -> int:
     compare.add_argument("expected")
     compare.add_argument("--min-dice", type=float, default=0.9, help="minimum foreground Dice for label images")
     compare.add_argument("--rtol", type=float, default=1e-3, help="relative tolerance for intensities and numbers")
+    compare.add_argument("--mode", choices=("auto", "labels", "intensities"), default="auto",
+                    help="compare images as labels or intensities (default: detect)")
+
+    from_fractal = commands.add_parser("from-fractal", help="draft config.yaml for a Fractal task (__FRACTAL_MANIFEST__.json)"
+                                       " or a Fractal workflow (export or template JSON)")
+    from_fractal.add_argument("manifest", help="path or URL of a task manifest or a workflow")
+    from_fractal.add_argument("--task", help="task name or executable (needed when the manifest has several)")
+    from_fractal.add_argument("-o", "--output")
+    from_fractal.add_argument("--steps", help="workflow: file for the step plan wrapper.py runs (default: "
+                                               "fractal_steps.json next to --output)")
+    from_fractal.add_argument("--wheels", default=".fractal-wheels",
+                              help="workflow: folder for the task packages' wheels (their manifests are read from them)")
+    from_fractal.add_argument("--manifest", dest="package_manifests", action="append", default=[], metavar="PKG==VERSION=PATH",
+                              help="workflow: a package's wheel or __FRACTAL_MANIFEST__.json (packages not on PyPI)")
+    from_fractal.add_argument("--python-version", default="3.12",
+                              help="workflow: Python of the task environment, for downloading the packages' wheels")
+    from_fractal.add_argument("--cli-command", default="python -m <package>.<task module>",
+                              help="command running the task inside the container")
+
+    from_galaxy = commands.add_parser("from-galaxy", help="draft config.yaml for a Galaxy tool (.xml) or workflow (.ga)")
+    from_galaxy.add_argument("source", help="path or URL of a tool wrapper XML or a .ga workflow")
+    from_galaxy.add_argument("-o", "--output")
+    from_galaxy.add_argument("--no-step-params", action="store_true",
+                             help="workflow: only its parameter_input steps, not the values its tool steps fix")
+    from_galaxy.add_argument("--input-format", nargs="+", default=["tiff"], help="workflow: input image formats")
+    from_galaxy.add_argument("--output-format", nargs="+", default=["tiff"], help="workflow: output image formats")
+    from_galaxy.add_argument("--tool", action="append", default=[], metavar="XML",
+                             help="workflow: a step's tool wrapper (path or URL), at the version the workflow pins; "
+                                  "gives its parameters' types and options and reports stale tool_state (repeatable)")
 
     to_biaflows = commands.add_parser("to-biaflows", help="write a BIAFLOWS descriptor.json for a bilayers config")
     to_biaflows.add_argument("config")
@@ -145,6 +181,68 @@ def _run(args) -> int:
                                                    input_formats=args.input_format, output_formats=args.output_format)
         _write(config, args.output, as_json=False)
         return 0
+    if args.command == "from-fractal":
+        from . import fractal
+
+        manifest = _read_mapping(args.manifest)
+        if not fractal.is_workflow(manifest):
+            _write(fractal.bilayers_from_manifest(manifest, args.task, cli_command=args.cli_command), args.output,
+                   as_json=False)
+            print(f"wrapper.py: {fractal.wrapper_hint(manifest, args.task)}", file=sys.stderr)
+            return 0
+        workflow = fractal.load_workflow(manifest)
+        manifests = {}
+        for entry in args.package_manifests:
+            key, _, path = entry.rpartition("=")
+            manifests[key] = fractal.read_manifest(Path(path))
+        for step in workflow["steps"]:
+            key = f"{step['pkg_name']}=={step['version']}"
+            if key not in manifests:
+                try:
+                    manifests[key] = fractal.fetch_manifest(step["pkg_name"], step["version"], Path(args.wheels),
+                                                            args.python_version)
+                except (subprocess.CalledProcessError, FileNotFoundError, StopIteration) as error:
+                    print(f"no manifest for {key}: {error}", file=sys.stderr)
+                    manifests[key] = ({}, None)
+        config, plan = fractal.bilayers_from_workflow(workflow, manifests)
+        _write(config, args.output, as_json=False)
+        steps_path = Path(args.steps) if args.steps else (Path(args.output).with_name("fractal_steps.json")
+                                                          if args.output else None)
+        kept = [step for step in plan if "skip" not in step]
+        for step in plan:
+            status = f"SKIPPED: {step['skip']}" if "skip" in step else step["kind"] + (f"; {step['note']}" if "note" in step else "")
+            print(f"step {step['id']} ({step['task']}): {status}", file=sys.stderr)
+        if steps_path:
+            steps_path.write_text(json.dumps(kept, indent=2) + "\n", encoding="utf-8")
+            print(f"wrapper.py: run(spec=CONFIG, tool=fractal_workflow(Path(__file__).with_name({steps_path.name!r})))",
+                  file=sys.stderr)
+        return 0
+    if args.command == "from-galaxy":
+        from . import galaxy
+
+        text = _read_text(args.source)
+        if text.lstrip().startswith("<"):
+            config = galaxy.bilayers_from_tool(text)
+            for item in galaxy.unexpanded(text):
+                print(f"not drafted (add by hand if user-facing): {item}", file=sys.stderr)
+        else:
+            workflow = json.loads(text)
+            import xml.etree.ElementTree as ET
+
+            tools = {}
+            for source in args.tool:
+                xml = _read_text(source)
+                tools[ET.fromstring(xml).get("id")] = xml
+            config = galaxy.bilayers_from_workflow(workflow, input_formats=args.input_format,
+                                                   output_formats=args.output_format,
+                                                   step_params=not args.no_step_params, tools=tools or None)
+            for item in galaxy.stale_state(workflow, tools) if tools else []:
+                print(f"stale tool_state (not in the pinned wrapper, left out): {item}", file=sys.stderr)
+            for step in galaxy.workflow_steps(workflow):
+                print(f"step {step['id']} {step['type']} {step['name']}: {step['tool_id'] or ''} "
+                      f"{step['repository'] or ''} <- {step['inputs_from']}", file=sys.stderr)
+        _write(config, args.output, as_json=False)
+        return 0
     if args.command == "container-test":
         from .container_test import container_test
 
@@ -154,7 +252,7 @@ def _run(args) -> int:
             container_test(Path(args.config), runtime=args.runtime, sample=args.sample, params=params,
                            build=not args.no_build, keep=args.keep, expected=args.expected,
                            synthetic=_synthetic_spec(args, "synthetic-") if args.synthetic else None,
-                           min_dice=args.min_dice, rtol=args.rtol)
+                           min_dice=args.min_dice, rtol=args.rtol, mode=args.mode)
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(f"error: {error}", file=sys.stderr)
             return 1
@@ -175,7 +273,7 @@ def _run(args) -> int:
 
         with tempfile.TemporaryDirectory() as workdir:
             results = compare_outputs(unpack(Path(args.output), Path(workdir)), Path(args.expected),
-                                      min_dice=args.min_dice, rtol=args.rtol)
+                                      min_dice=args.min_dice, rtol=args.rtol, mode=args.mode)
         print("\n".join(str(result) for result in results))
         return int(not all(result.ok for result in results))
     _write(biaflows.descriptor_from_bilayers(BilayersSpec(args.config)), args.output, as_json=True)

@@ -4,10 +4,11 @@ Every file in the expected folder must have a matching output: the output with t
 (ignoring the image format, e.g. ``a.tif`` matches ``a.ome.zarr``), else one whose name starts
 with the expected name (``a_labels.tif``), else the only output image when there is one.
 
-- Label images (integer images with few values): the foreground overlap (Dice) must be at
-  least ``min_dice`` and, when the output has instance labels, the object counts must match
-  (label values themselves may differ).
-- Other images: values must agree within ``rtol`` (relative to the expected value range).
+- Label images (integer images whose objects are flat, see ``is_labels``; or ``mode="labels"``):
+  the foreground overlap (Dice) must be at least ``min_dice`` and, when the output has instance
+  labels, the object counts must match (label values themselves may differ).
+- Other images (or ``mode="intensities"``): values must agree within ``rtol`` (relative to the
+  expected value range).
 - CSV/TSV tables: same shape, text cells equal, numbers within ``rtol``.
 - Other files: identical content. Metadata the run generates (RO-Crate) is not compared.
 """
@@ -24,7 +25,8 @@ from .conversion import find_images, image_format, image_stem
 from .fair import CRATE_METADATA
 
 SKIPPED = {CRATE_METADATA, "parameters.yaml", "config.yaml", "ro-crate-preview.html", "ro-crate-preview_files"}
-MAX_LABELS = 65536  # integer images with more distinct values are compared as intensities
+MODES = ("auto", "labels", "intensities")
+LABEL_FLATNESS = 0.9  # share of equal neighbouring foreground pixels from which an image counts as labels
 
 
 @dataclass
@@ -57,18 +59,27 @@ def read_image(path: Path):
     return np.squeeze(np.asarray(group[multiscales[0]["datasets"][0]["path"]]))
 
 
-def _is_labels(array) -> bool:
+def is_labels(array) -> bool:
+    """An integer image whose objects are flat: neighbouring foreground pixels (almost) always have
+    the same value. Intensity images, even with few grey values, vary from pixel to pixel."""
     import numpy as np
 
-    return np.issubdtype(array.dtype, np.integer) and len(np.unique(array)) <= MAX_LABELS
+    if not np.issubdtype(array.dtype, np.integer) or array.ndim == 0 or array.shape[-1] < 2:
+        return False
+    left, right = array[..., :-1], array[..., 1:]
+    pairs = (left > 0) & (right > 0)
+    return not pairs.any() or float((left[pairs] == right[pairs]).mean()) >= LABEL_FLATNESS
 
 
-def compare_images(actual, expected, min_dice: float = 0.9, rtol: float = 1e-3) -> tuple[bool, str]:
+def compare_images(actual, expected, min_dice: float = 0.9, rtol: float = 1e-3, mode: str = "auto") -> tuple[bool, str]:
+    """``mode``: ``labels``, ``intensities`` or ``auto`` (labels when the expected image looks like one)."""
     import numpy as np
 
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {MODES}")
     if actual.shape != expected.shape:
         return False, f"shape {actual.shape} != expected {expected.shape}"
-    if _is_labels(expected) and np.issubdtype(actual.dtype, np.integer):
+    if mode == "labels" or (mode == "auto" and is_labels(expected) and np.issubdtype(actual.dtype, np.integer)):
         fg_actual, fg_expected = actual > 0, expected > 0
         total = fg_actual.sum() + fg_expected.sum()
         dice = 1.0 if total == 0 else 2 * np.logical_and(fg_actual, fg_expected).sum() / total
@@ -143,9 +154,9 @@ def unpack(output: Path, workdir: Path) -> Path:
     return output
 
 
-def _compare(actual: Path, expected: Path, min_dice: float, rtol: float) -> tuple[bool, str]:
+def _compare(actual: Path, expected: Path, min_dice: float, rtol: float, mode: str) -> tuple[bool, str]:
     if image_format(expected):
-        return compare_images(read_image(actual), read_image(expected), min_dice, rtol)
+        return compare_images(read_image(actual), read_image(expected), min_dice, rtol, mode)
     if expected.suffix.lower() in (".csv", ".tsv"):
         return compare_tables(actual, expected, rtol)
     if expected.suffix.lower() == ".json":
@@ -155,7 +166,8 @@ def _compare(actual: Path, expected: Path, min_dice: float, rtol: float) -> tupl
     return ok, "identical" if ok else "content differs"
 
 
-def compare_outputs(output: Path, expected: Path, min_dice: float = 0.9, rtol: float = 1e-3) -> list[Comparison]:
+def compare_outputs(output: Path, expected: Path, min_dice: float = 0.9, rtol: float = 1e-3,
+                    mode: str = "auto") -> list[Comparison]:
     """Compare every expected file with its matching output."""
     output, expected = Path(output), Path(expected)
     outputs = _entries(output)
@@ -169,7 +181,7 @@ def compare_outputs(output: Path, expected: Path, min_dice: float = 0.9, rtol: f
             results.append(Comparison(entry, None, False, "no matching output"))
             continue
         try:
-            ok, detail = _compare(actual, entry, min_dice, rtol)
+            ok, detail = _compare(actual, entry, min_dice, rtol, mode)
         except Exception as error:  # noqa: BLE001 - an unreadable output is a failed comparison
             ok, detail = False, f"cannot read: {error}"
         results.append(Comparison(entry, actual, ok, detail))

@@ -124,24 +124,51 @@ def prepare_input(folder: Path, accepted: set[str], staging: Path, zarr_format: 
 
 
 def output_target(policy: str, input_formats: set[str], output_formats: set[str]) -> str | None:
-    """The format outputs are converted to, or None to leave them as the tool wrote them."""
+    """The format outputs not in an allowed format (see ``allowed_outputs``) are converted to, or None
+    to leave them as the tool wrote them.
+
+    ``auto`` converts only what the workflow requires: images in a format its outputs do not
+    list, to one they list (OME-Zarr first). ``input_formats`` are not used by it: OME-Zarr
+    coming in does not by itself mean OME-Zarr must go back.
+    """
     if policy not in OUTPUT_POLICIES:
         raise ValueError(f"output format policy must be one of {OUTPUT_POLICIES}, not {policy!r}")
     if policy == "keep":
         return None
     if policy in (ZARR, TIFF):
         return policy
-    # auto: give OME-Zarr back when OME-Zarr came in and the tool does not write it
-    return ZARR if ZARR in input_formats and ZARR not in output_formats else None
+    if not output_formats:
+        return None
+    return ZARR if ZARR in output_formats else TIFF
 
 
-def finalize_output(tool_folder: Path, final_folder: Path, target: str, zarr_format: str | None = None) -> list[Path]:
-    """Convert the tool's images to ``target`` into ``final_folder``; move everything else."""
+def allowed_outputs(policy: str, output_formats: set[str], target: str | None) -> set[str]:
+    """Output image formats left as written: the workflow's output formats (``auto``), else the target."""
+    return set(output_formats) if policy == "auto" else ({target} if target else set())
+
+
+def convert_in_place(folder: Path, target: str, zarr_format: str | None = None,
+                     allowed: set[str] | None = None) -> list[Path]:
+    """Convert the images in ``folder`` not in an ``allowed`` format to ``target``, replacing them."""
+    allowed = allowed or {target}
+    written = []
+    for image in find_images(folder):
+        if image_format(image) not in allowed:
+            written += convert(image, folder, target, zarr_format)
+            shutil.rmtree(image) if image.is_dir() else image.unlink()
+    return written
+
+
+def finalize_output(tool_folder: Path, final_folder: Path, target: str, zarr_format: str | None = None,
+                    allowed: set[str] | None = None) -> list[Path]:
+    """Convert the tool's images not in an ``allowed`` format (default: the target) to ``target`` into
+    ``final_folder``; move everything else."""
     final_folder.mkdir(parents=True, exist_ok=True)
+    allowed = allowed or {target}
     written = []
     for entry in sorted(tool_folder.iterdir()):
         fmt = image_format(entry)
-        if fmt is not None and fmt != target:
+        if fmt is not None and fmt not in allowed:
             written += convert(entry, final_folder, target, zarr_format)
         else:
             dest = final_folder / entry.name

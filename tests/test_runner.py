@@ -6,7 +6,7 @@ import tifffile
 import yaml
 
 from biomero_auto import BilayersSpec, run
-from biomero_auto.conversion import find_images, output_target
+from biomero_auto.conversion import allowed_outputs, find_images, output_target
 from conftest import biomero_argv
 
 
@@ -18,8 +18,9 @@ def spec(config_path, python_cli_command):
 
 
 @pytest.mark.filterwarnings("error::UserWarning:fair_metadata_integration")
-def test_zarr_in_zarr_out_with_ro_crate(spec, config_path, zarr_folder):
-    """BIOMERO gives OME-Zarr; the TIFF tool runs on converted input; OME-Zarr labels come back.
+def test_zarr_in_declared_tiff_out_with_ro_crate(spec, config_path, zarr_folder):
+    """BIOMERO gives OME-Zarr; the TIFF tool runs on converted input (required: it reads TIFF only); its TIFF
+    labels are not converted back, as the workflow declares TIFF output.
 
     The run's values are in parameters.yaml under their sections, as the config has them, so the crate
     raises no warning about values the workflow lacks."""
@@ -27,15 +28,21 @@ def test_zarr_in_zarr_out_with_ro_crate(spec, config_path, zarr_folder):
     argv = biomero_argv(config_path, data_path, threshold_method="otsu", min_diameter=1, max_diameter=50)
     assert run(argv, spec=spec) == 0
     out = data_path / "data" / "out"
-    assert [path.name for path in find_images(out)] == ["blobs_output.ome.zarr"]
+    assert [path.name for path in find_images(out)] == ["blobs_output.tiff"]
     crate = json.loads((out / "ro-crate-metadata.json").read_text())
     ids = {entity["@id"].rstrip("/") for entity in crate["@graph"]}
     input_uri = (data_path / "data" / "in").resolve().as_uri()
-    assert {config_path.name, "blobs_output.ome.zarr", input_uri} <= ids
-    for entity_id in (config_path.name, "blobs_output.ome.zarr"):
+    assert {config_path.name, "blobs_output.tiff", input_uri} <= ids
+    for entity_id in (config_path.name, "blobs_output.tiff"):
         assert (out / entity_id).exists(), f"{entity_id} not in the crate"
     entities = {entity["@id"]: entity for entity in crate["@graph"]}
     assert entities["parameters.yaml"]["about"] == {"@id": "#run"}
+    run_entity = entities["#run"]
+    assert run_entity["startTime"] <= run_entity["endTime"] and "name" in run_entity
+    software = [e for e in crate["@graph"] if e.get("@type") == "SoftwareApplication"]
+    docker = spec.parsed["docker_image"]
+    assert any(e.get("name") == f"{docker['org']}/{docker['name']}" and e.get("softwareVersion") == str(docker["tag"])
+               for e in software), software
     values = yaml.safe_load((out / "parameters.yaml").read_text())
     assert values["input-args"] == {"threshold_method": "otsu", "min_diameter": 1, "max_diameter": 50}
     assert set(values) == {"input-args", "output-args"}
@@ -72,7 +79,7 @@ def test_output_zipped_without_compression(spec, config_path, zarr_folder):
     with zipfile.ZipFile(out / "classical_segmentation.zip") as archive:
         names = archive.namelist()
         assert "ro-crate-metadata.json" in names
-        assert any(name.startswith("blobs_output.ome.zarr/") for name in names)
+        assert "blobs_output.tiff" in names
         assert {info.compress_type for info in archive.infolist()} == {zipfile.ZIP_STORED}
 
 
@@ -142,9 +149,9 @@ def test_tool_formats_must_be_image_formats(spec, tmp_path, tiff_folder):
 
 
 @pytest.mark.parametrize("policy, inputs, outputs, expected", [
-    ("auto", {"zarr"}, {"tiff"}, "zarr"),
-    ("auto", {"tiff"}, {"tiff"}, None),
-    ("auto", {"zarr"}, {"zarr"}, None),
+    ("auto", {"zarr"}, {"tiff"}, "tiff"),  # images not in TIFF are converted to it; TIFF stays
+    ("auto", {"tiff"}, {"zarr", "tiff"}, "zarr"),
+    ("auto", {"zarr"}, set(), None),  # no image format declared: nothing is converted
     ("keep", {"zarr"}, {"tiff"}, None),
     ("tiff", {"zarr"}, {"zarr"}, "tiff"),
 ])
@@ -162,3 +169,16 @@ def test_file_outputs_are_kept_in_the_ro_crate(spec, tmp_path, tiff_folder):
     assert (out / "Nuclei.csv").read_text() == "ObjectNumber,Area\n1,42\n"
     entities = {entity["@id"]: entity for entity in json.loads((out / "ro-crate-metadata.json").read_text())["@graph"]}
     assert entities["Nuclei.csv"]["@type"] == "File"
+
+
+def test_output_converted_only_when_the_workflow_requires_it(config_path, python_cli_command, tmp_path, tiff_folder):
+    """The same TIFF tool, in a workflow declaring OME-Zarr output: then its labels are converted."""
+    spec = BilayersSpec(config_path)
+    spec.parsed["exec_function"]["cli_command"] = python_cli_command
+    for output in spec.outputs.values():
+        output["format"] = ["zarr"]
+    out = tmp_path / "out"
+    assert run(["--folder", str(tiff_folder), "--save_dir", str(out)], spec=spec, ro_crate=False) == 0
+    assert [path.name for path in find_images(out)] == ["blobs_output.ome.zarr"]  # TIFF in, OME-Zarr out
+    assert allowed_outputs("auto", {"zarr", "tiff"}, "zarr") == {"zarr", "tiff"}
+    assert allowed_outputs("zarr", {"tiff"}, "zarr") == {"zarr"}

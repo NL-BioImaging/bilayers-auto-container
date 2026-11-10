@@ -1,6 +1,6 @@
 ---
 name: create-biomero-container
-description: Create a BIOMERO-deployable, FAIR workflow container from a source workflow URL (a GitHub repo of a tool, a BIAFLOWS/NEUBIAS workflow, an existing bilayers workflow, a Python package, a pipeline for a GUI tool). Produces a new repository from this template with a bilayers config.yaml, wrapper.py, Dockerfile and tests; OME-Zarr/TIFF conversion and RO-Crate metadata are handled by biomero_auto. Use when the user gives a workflow URL and asks for a BIOMERO (or bilayers) container.
+description: Create a BIOMERO-deployable, FAIR workflow container from a source workflow URL (a GitHub repo of a tool, a BIAFLOWS/NEUBIAS workflow, a Fractal task or workflow, a Galaxy tool or workflow, an existing bilayers workflow, a Python package, a pipeline for a GUI tool). Produces a new repository from this template with a bilayers config.yaml, wrapper.py, Dockerfile and tests; OME-Zarr/TIFF conversion and RO-Crate metadata are handled by biomero_auto. Use when the user gives a workflow URL and asks for a BIOMERO (or bilayers) container.
 ---
 
 # Create a BIOMERO container from a workflow URL
@@ -20,13 +20,15 @@ Every generated container runs these steps, in this order; the tool hook (step 4
 only replaces "run the tool". Do not reimplement or skip any of them in `wrapper.py`.
 
 1. Resolve the values BIOMERO passes (`config.yaml`).
-2. Convert input images to a `format` the tool accepts (biomero-converter).
+2. Convert input images to a `format` the tool accepts, only those it does not (biomero-converter).
 3. Run the tool (the sub-package / wrapped container) into a staging folder.
-4. Convert the tool's output images back to OME-Zarr if needed (biomero-converter).
+4. Convert the tool's output images only when they are not in a `format` the workflow's outputs
+   list (biomero-converter); no conversion back just because OME-Zarr came in.
 5. FAIRification: fair-metadata-integration's `create_ro_crate` makes the output folder a
    Workflow RO-Crate: `ro-crate-metadata.json`, `config.yaml` as the workflow (mainEntity,
    language Bilayers), the run's values in `parameters.yaml` (each under its entry's
-   `section_id`, as the config has it), and the input and outputs with EDAM formats.
+   `section_id`, as the config has it), the input and outputs with EDAM formats, and the run's
+   name, start and end time and software (the `docker_image`).
 6. Optionally zip the whole output folder, stored without compression, as one file
    (`BIOMERO_ZIP_OUTPUT=true`, or `run(..., zip_output=True)` in `wrapper.py`).
 
@@ -60,7 +62,9 @@ work. (Podman also works: `--runtime podman` below.) Use a venv with the templat
      TIFF, as BIOMERO provides them) and a folder with the outputs the tool should produce for
      them (e.g. from a reference run of the original tool). Read them as data, like the source.
   2. **Test data from the source**: the tool's own test data or examples (with expected results
-     where the source has them).
+     where the source has them). Without expected results, make them with a **reference run**:
+     the original tool, at the pinned version, run directly the way its own docs/tests do
+     (not through `biomero_auto`), on the same data; the container must then reproduce it.
   3. **Synthetic data** (`biomero-auto synthetic`): images with bright objects on a dark
      background, generated to match what the tool reads (size, Z, T, channels, number and
      radius of objects, noise, dtype), with their ground-truth labels as the expected output.
@@ -72,10 +76,19 @@ work. (Podman also works: `--runtime podman` below.) Use a venv with the templat
   container. If a checkout fails on Windows (invalid file names), use
   `git -c core.longpaths=true restore --source=HEAD -- <paths you need>` or raw downloads.
 - Identify: what the tool does; how it is invoked (CLI, Python API, pipeline file + headless
-  runner, BIAFLOWS `wrapper.py`); its inputs (image formats, dimensionality, channels),
-  outputs (labels, images, tables), and parameters (names, types, defaults, ranges,
-  choices); install method and versions; license; citation/DOI. Prefer the tool's own docs,
-  `--help` text in its source, `descriptor.json`/`config.yaml`/`Dockerfile` if present.
+  runner, BIAFLOWS `wrapper.py`, Fractal task, Galaxy tool/workflow); its inputs (image formats,
+  dimensionality, channels), outputs (labels, images, tables), and parameters (names, types,
+  defaults, ranges, choices); install method and versions; license; citation/DOI. Prefer the
+  tool's own docs, `--help` text in its source, `descriptor.json`/`config.yaml`/`Dockerfile`,
+  `__FRACTAL_MANIFEST__.json` or a Fractal workflow JSON, Galaxy tool XML / `.ga` if present. Pick the version to pin (the
+  latest release, not `main`, unless asked) and read the code at that version.
+- **Find what the tool needs beyond the pixels.** BIOMERO gives images exported from OMERO:
+  OME-Zarr (or TIFF) with pixels, axes, pixel sizes and OMERO channel names, one image at a
+  time. Tool-specific metadata in the source's own data (e.g. Fractal ROI tables and channel
+  `wavelength_id`s, HCS plate/well layout, sidecar files) is not there. Search the tool's code
+  for what it reads (`tables/`, metadata keys, file names) and plan how the container provides
+  it (from parameters, computed, or defaults), or state the limitation. The tests then also run
+  an **OMERO-like copy** of the test data with that metadata removed.
 
 ## 2. The workflow repository
 
@@ -134,7 +147,11 @@ Draft it from the source (see source types), then go through every field:
   `subtype/depth/timepoints/tiled/pyramidal` must state what the tool supports.
 - Outputs: either an output with a `cli_tag` (BIOMERO passes `data/out` to it) or an
   `output_dir_set: True` parameter whose `cli_tag` is the tool's output-folder flag.
-  List the output `format` the tool writes; OME-Zarr goes back to OMERO by default.
+  List the output `format`(s) the workflow returns. Image formats are converted only when the
+  workflow requires it: inputs when BIOMERO's format is not in the input `format` (or the tool's
+  `tool_formats`), outputs when the tool writes a format the output `format` does not list (to
+  one it lists, OME-Zarr first). Declare what the tool writes unless OMERO needs another format
+  (BIOMERO imports TIFF and OME-Zarr alike); OME-Zarr input alone is no reason to convert back.
 - `parameters`: every user-facing tool option, with bilayers types only (`integer`, `float`,
   `checkbox`, `dropdown`, `radio`, `textbox`; never `string`), real defaults, `options` for
   choices, clear `label`/`description` (shown in OMERO). `cli_tag`s must be the tool's flags
@@ -149,9 +166,14 @@ Draft it from the source (see source types), then go through every field:
    with bilayers' `generate_cli_command`.
 2. BIAFLOWS/NEUBIAS wrapper: `run(spec=CONFIG, tool=biaflows_tool("python /app/biaflows/wrapper.py"))`
    — calls it with `--infolder --outfolder --gtfolder --local -nmc --<id> value`.
-3. Anything else (a pipeline file to fill in, a Python API, several steps): a small
+3. Fractal task: `run(spec=CONFIG, tool=fractal_tool([TASK_PYTHON, "-m", "<package>.<task module>"], kind="parallel", prepare=..., exclude=[...]))`;
+   Fractal workflow: `run(spec=CONFIG, tool=fractal_workflow(<fractal_steps.json>, task_python=TASK_PYTHON))`
+   (`biomero_auto.fractal`; see the source types for `prepare`, the copies and image types).
+4. Anything else (a pipeline file to fill in, a Python API, several steps, a Galaxy workflow): a small
    `tool(ctx)` function using `ctx.params`, `ctx.inputs`, `ctx.outputs`, `ctx.workdir` and,
    where useful, `ctx.command()`. Keep it in `wrapper.py` and reuse the tool's own API.
+   Galaxy workflow: a `tool(ctx)` running each kept step's command per image, as its wrapper
+   renders it, each in its own environment (see the source types).
 
 ## 5. Dockerfile
 
@@ -159,6 +181,11 @@ Fill in only the tool layer, between the `# >>> tool layer` and `# <<< tool laye
 (keep the markers); change the base image only when the tool needs another one. Pin versions (tags/commits) of the tool and its dependencies, so
 each release tag of the workflow reproduces the same results. (The template's own dependencies,
 in `pyproject.toml` and the BIOMERO layer, stay unpinned.)
+**Keep the source's pinned versions**, also when a pinned tool cannot read a format BIOMERO
+delivers (e.g. OME-Zarr): declare the formats it does read, so the input is converted (a
+conversion the workflow requires), rather than upgrading the tool; note it in the generated notes.
+Tool environments from conda (micromamba lock files) need `curl bzip2` next to `git` in the
+template's `apt-get install` line.
 In the BIOMERO layer, install the template from GitHub instead of copying `src/`:
 `pip install "biomero-auto-container @ git+https://github.com/NL-BioImaging/biomero-auto-container.git"`.
 If the tool's image has no Python >= 3.12, give `biomero_auto` its own environment and point
@@ -169,6 +196,17 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
 RUN python -m pip install uv && uv venv /opt/biomero --python 3.12     && uv pip install --no-cache --python /opt/biomero/bin/python "biomero-auto-container @ git+https://github.com/NL-BioImaging/biomero-auto-container.git"     && chmod -R a+rX /opt/biomero /opt/uv-python
 ENTRYPOINT ["/opt/biomero/bin/python", "/app/wrapper.py"]
 ```
+
+Likewise when the tool's dependencies conflict with `biomero_auto`'s (e.g. zarr 2 vs 3, as for
+Fractal tasks): install the tool into its own venv (`python -m venv /opt/<tool>`) from a
+`requirements-tool.txt` with the exact versions of a working environment (`pip freeze`, without
+platform-only packages), and call it with that venv's Python. Use the same file for the local
+tests and CI.
+
+If the workflow needs `biomero_auto` changes that are not on GitHub yet, build the local
+container test from a copy of the repository whose BIOMERO layer installs a wheel of the local
+template (`pip wheel --no-deps -w <copy>/wheels <template>`), say so in the notes, and rebuild
+from GitHub once the template is pushed.
 
 Label the image with the same generated-with notice, so that it stays visible
 in the image itself (`docker inspect`), outside the repository:
@@ -218,17 +256,21 @@ All of these must pass before the workflow is reported as done:
      set to what the tool reads (its ground truth is compared unless `--expected` is given);
      or generate it once with `biomero-auto synthetic <in> --expected <expected> ...` and pass
      the folders as above;
-   - neither: a small generated OME-Zarr, without comparison.
+   - neither: a small generated OME-Zarr, without comparison;
+   - and, when the tool needs metadata OMERO exports lack (step 1), the OMERO-like copy, with
+     the parameters that replace that metadata and its own reference run.
    With expected outputs, every expected file must match an output (same name ignoring the image
    format, or the output name starting with it, e.g. `a.tif` ~ `a_labels.ome.zarr`): label images
-   by foreground Dice (`--min-dice`, default 0.9) and object count, other images and CSV/TSV
-   numbers within `--rtol` (default 1e-3), other files identical. A mismatch fails the test; find
+   (integer images with flat objects) by foreground Dice (`--min-dice`, default 0.9) and object
+   count, other images and CSV/TSV numbers within `--rtol` (default 1e-3; `--mode
+   labels|intensities` overrides the detection), other files identical. A reference run with the
+   same pinned versions should match exactly. A mismatch fails the test; find
    out whether the container, the parameters (`--param`) or the expectation is wrong before
    changing a tolerance, and never loosen one only to pass. `biomero-auto compare <out> <expected>`
    re-checks a kept job. Use `--param name=value` for parameters a meaningful run needs.
    Use `--keep <folder>` and
-   inspect `<job>/data/out`: plausible results in the expected formats (OME-Zarr back when
-   OME-Zarr came in), `ro-crate-metadata.json` describing the config, input and every
+   inspect `<job>/data/out`: plausible results in the declared output formats (converted only
+   when the tool wrote another format), `ro-crate-metadata.json` describing the config, input and every
    output, no copy of the input images (by default), and, only when zipping is enabled, a
    single uncompressed `<algorithm_folder_name>.zip` containing all of that. A failing build or run is fixed in the Dockerfile/config/wrapper,
    not skipped.
