@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from biomero_auto import container_test as ct
-from biomero_auto.conversion import ZARR, find_images, image_format
+from bilayers_auto import container_test as ct
+from bilayers_auto.conversion import ZARR, find_images, image_format
 from conftest import CONFIG as WORKFLOW_CONFIG, EXAMPLE, ROOT
 
 

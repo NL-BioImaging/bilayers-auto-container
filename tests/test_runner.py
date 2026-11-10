@@ -5,8 +5,8 @@ import pytest
 import tifffile
 import yaml
 
-from biomero_auto import BilayersSpec, run
-from biomero_auto.conversion import allowed_outputs, find_images, output_target
+from bilayers_auto import BilayersSpec, run
+from bilayers_auto.conversion import allowed_outputs, find_images, output_target
 from conftest import biomero_argv
 
 

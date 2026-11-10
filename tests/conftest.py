@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import tifffile
 
-from biomero_auto.contract import add_omero_metadata, biomero_argv  # noqa: F401 - used by tests
+from bilayers_auto.contract import add_omero_metadata, biomero_argv  # noqa: F401 - used by tests
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples" / "classical_segmentation"
@@ -35,7 +35,7 @@ def tiff_folder(tmp_path):
 @pytest.fixture
 def zarr_folder(tmp_path, tiff_folder):
     """The same image as OME-Zarr, as BIOMERO provides it in data/in."""
-    from biomero_auto.conversion import convert
+    from bilayers_auto.conversion import convert
 
     folder = tmp_path / "data" / "in"
     for store in convert(tiff_folder / "blobs.tif", folder, "zarr"):

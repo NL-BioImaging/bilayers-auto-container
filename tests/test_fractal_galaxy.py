@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from biomero_auto import fractal, galaxy
-from biomero_auto.cli import main
+from bilayers_auto import fractal, galaxy
+from bilayers_auto.cli import main
 
 DATA = Path(__file__).parent / "data"
 TASK = [sys.executable, str(DATA / "fake_fractal_task.py")]

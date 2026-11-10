@@ -37,7 +37,7 @@ from typing import Callable, Sequence
 from . import conversion
 from .spec import BilayersSpec, RunValues, SpecError, to_bool
 
-logger = logging.getLogger("biomero_auto")
+logger = logging.getLogger("bilayers_auto")
 
 Tool = Callable[["RunContext"], None]
 

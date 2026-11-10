@@ -16,7 +16,7 @@ FILES = {
     "src/bilayers/cli_generator.py": "cli_generator.py",
     "LICENSE": "LICENSE",
 }
-VENDOR_DIR = Path(__file__).resolve().parents[1] / "src" / "biomero_auto" / "_vendor" / "bilayers"
+VENDOR_DIR = Path(__file__).resolve().parents[1] / "src" / "bilayers_auto" / "_vendor" / "bilayers"
 
 
 def main():

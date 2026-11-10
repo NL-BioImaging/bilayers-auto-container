@@ -1,4 +1,4 @@
-# biomero-auto-container
+# bilayers-auto-container
 
 Template for [BIOMERO](https://github.com/NL-BioImaging/biomero) workflow containers described by a
 [bilayers](https://github.com/bilayer-containers/bilayers) spec, with OME-Zarr ⇄ TIFF conversion
@@ -7,7 +7,7 @@ metadata ([fair-metadata-integration](https://github.com/NL-BioImaging/fair-meta
 
 To create a container for a workflow, ask Claude Code in this repository, e.g.
 *"create a BIOMERO container for https://github.com/Neubias-WG5/W_NucleiSegmentation-CellProfiler"*;
-the [`create-biomero-container`](.claude/skills/create-biomero-container/SKILL.md) skill does the rest.
+the [`create-bilayers-container`](.claude/skills/create-bilayers-container/SKILL.md) skill does the rest.
 
 ## Layout
 
@@ -16,7 +16,7 @@ the [`create-biomero-container`](.claude/skills/create-biomero-container/SKILL.m
 | `config.yaml` | bilayers spec of the workflow; BIOMERO reads it from the repository at a release tag. Not in the template: written per workflow from its source |
 | `wrapper.py` | image entrypoint; picks the tool hook |
 | `Dockerfile` | generic image; the tool layer (between the `>>>`/`<<<` markers) is filled in per workflow |
-| `src/biomero_auto/` | generic glue (below) |
+| `src/bilayers_auto/` | generic glue (below) |
 | `examples/classical_segmentation/` | a complete example workflow (`config.yaml` + `Dockerfile`), used by the tests and CI |
 
 The example is bilayers' classical segmentation, which reads TIFF: OME-Zarr from BIOMERO is converted
@@ -24,7 +24,7 @@ to TIFF for it and its TIFF labels back to OME-Zarr.
 
 ## What runs in the container
 
-`wrapper.py` → `biomero_auto.run`:
+`wrapper.py` → `bilayers_auto.run`:
 
 1. **Reads the spec and the arguments** (`spec.py`): BIOMERO style (`--<cli_tag>="value"`, folders
    set to `data/in`/`data/out`), bilayers-interface style, BIAFLOWS style
@@ -60,7 +60,7 @@ docker build -t <org>/<name> .
 docker run --rm -v ./job/data:/data <org>/<name> --<input tag>=/data/in --<output tag>=/data/out --<param>=<value>
 ```
 
-For the example: `biomero-auto container-test examples/classical_segmentation/config.yaml`
+For the example: `bilayers-auto container-test examples/classical_segmentation/config.yaml`
 (builds it with its own `Dockerfile` and runs it like BIOMERO).
 
 `job/data/in` holds the images (OME-Zarr or TIFF), results land in `job/data/out`. Mounting the
@@ -69,16 +69,16 @@ whole `data` folder keeps the conversion staging folder on the host disk.
 ## Command line
 
 ```
-biomero-auto validate config.yaml [--biomero]     # bilayers LinkML schema (+ BIOMERO's parser)
-biomero-auto parse config.yaml -- <args>          # resolved values as JSON
-biomero-auto command config.yaml -- <args>        # the tool command line
-biomero-auto from-biaflows <descriptor.json|URL>  # draft config.yaml for a BIAFLOWS workflow
-biomero-auto from-fractal <manifest|workflow>     # draft config.yaml for a Fractal task or workflow (+ fractal_steps.json)
-biomero-auto from-galaxy <tool.xml|wf.ga|URL>     # draft config.yaml for a Galaxy tool or workflow
-biomero-auto to-biaflows config.yaml              # descriptor.json for BIAFLOWS-only deployments
-biomero-auto container-test [config.yaml]         # build the image with Docker and run it like BIOMERO
-biomero-auto synthetic <in> [--expected <dir>]    # synthetic input images + ground-truth labels
-biomero-auto compare <out> <expected>             # compare a workflow's outputs with expected ones
+bilayers-auto validate config.yaml [--biomero]     # bilayers LinkML schema (+ BIOMERO's parser)
+bilayers-auto parse config.yaml -- <args>          # resolved values as JSON
+bilayers-auto command config.yaml -- <args>        # the tool command line
+bilayers-auto from-biaflows <descriptor.json|URL>  # draft config.yaml for a BIAFLOWS workflow
+bilayers-auto from-fractal <manifest|workflow>     # draft config.yaml for a Fractal task or workflow (+ fractal_steps.json)
+bilayers-auto from-galaxy <tool.xml|wf.ga|URL>     # draft config.yaml for a Galaxy tool or workflow
+bilayers-auto to-biaflows config.yaml              # descriptor.json for BIAFLOWS-only deployments
+bilayers-auto container-test [config.yaml]         # build the image with Docker and run it like BIOMERO
+bilayers-auto synthetic <in> [--expected <dir>]    # synthetic input images + ground-truth labels
+bilayers-auto compare <out> <expected>             # compare a workflow's outputs with expected ones
 ```
 
 `container-test` options: `--sample <folder>` (default: generated OME-Zarr), `--param name=value`,
@@ -86,7 +86,7 @@ biomero-auto compare <out> <expected>             # compare a workflow's outputs
 `--expected <folder>` (compare the outputs with expected ones), `--synthetic` (synthetic input,
 compared with its ground truth), `--min-dice`, `--rtol`, `--mode auto|labels|intensities`.
 
-Fractal tasks run with `biomero_auto.fractal.fractal_tool` as the tool in `wrapper.py`: the task is
+Fractal tasks run with `bilayers_auto.fractal.fractal_tool` as the tool in `wrapper.py`: the task is
 called as Fractal calls it (`--args-json`/`--out-json`) on a copy of each input image; new images
 it reports are the output (renamed to end in `.zarr`), and channels get the `wavelength_id`
 Fractal expects. A `prepare` function can add other Fractal metadata OMERO exports lack (ROI tables). `fractal_workflow("fractal_steps.json")` runs a Fractal
@@ -117,7 +117,7 @@ pytest
 check the actual BIOMERO contract.
 
 bilayers' `parse.py` and `cli_generator.py` are vendored unmodified in
-`src/biomero_auto/_vendor/bilayers` (BSD-3-Clause): bilayers is not on PyPI and its repository
+`src/bilayers_auto/_vendor/bilayers` (BSD-3-Clause): bilayers is not on PyPI and its repository
 cannot be checked out on Windows. Update them with `python scripts/sync_vendor.py`.
 
 ## Release

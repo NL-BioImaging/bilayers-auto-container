@@ -1,11 +1,11 @@
 ---
-name: create-biomero-container
-description: Create a BIOMERO-deployable, FAIR workflow container from a source workflow URL (a GitHub repo of a tool, a BIAFLOWS/NEUBIAS workflow, a Fractal task or workflow, a Galaxy tool or workflow, an existing bilayers workflow, a Python package, a pipeline for a GUI tool). Produces a new repository from this template with a bilayers config.yaml, wrapper.py, Dockerfile and tests; OME-Zarr/TIFF conversion and RO-Crate metadata are handled by biomero_auto. Use when the user gives a workflow URL and asks for a BIOMERO (or bilayers) container.
+name: create-bilayers-container
+description: Create a BIOMERO-deployable, FAIR workflow container from a source workflow URL (a GitHub repo of a tool, a BIAFLOWS/NEUBIAS workflow, a Fractal task or workflow, a Galaxy tool or workflow, an existing bilayers workflow, a Python package, a pipeline for a GUI tool). Produces a new repository from this template with a bilayers config.yaml, wrapper.py, Dockerfile and tests; OME-Zarr/TIFF conversion and RO-Crate metadata are handled by bilayers_auto. Use when the user gives a workflow URL and asks for a BIOMERO (or bilayers) container.
 ---
 
 # Create a BIOMERO container from a workflow URL
 
-This repository is the template. `biomero_auto` (in `src/`) does the generic work and is
+This repository is the template. `bilayers_auto` (in `src/`) does the generic work and is
 installed from GitHub into each workflow image, never copied: a workflow repository holds only
 `config.yaml` (the bilayers spec), `wrapper.py` (which tool hook to run), the `Dockerfile`, its
 tool's own files and a few tests. Write no other runtime code unless the tool really needs it;
@@ -48,14 +48,15 @@ The defaults follow what BIOMERO currently expects, so keep them unless the depl
 Docker (Desktop or similar) is used to build, test and deploy the image. Check it first
 with `docker info`; if it does not respond, ask the user to start it before doing any other
 work. (Podman also works: `--runtime podman` below.) Use a venv with the template installed:
-`pip install "biomero-auto-container[test] @ git+https://github.com/NL-BioImaging/biomero-auto-container.git"`
+`pip install "bilayers-auto-container[test] @ git+https://github.com/NL-BioImaging/bilayers-auto-container.git"`
 (or `pip install -e "<template checkout>[test]"`).
 
 ## 1. Get the source
 
 - The URL the user gave is the source of truth. Ask only for what cannot be derived:
   the Docker Hub org/name to publish to and the target directory, if not given
-  (default: a sibling directory `../W_<ToolName>-BIOMERO`), and the test data (below).
+  (default: a sibling directory `../bilayers_<ToolName>`, image name `bilayers_<toolname>` in
+  lowercase; no `W_` prefix or `-BIOMERO` suffix), and the test data (below).
 - **Test data**, used to check the container's results in step 6. Unless the user already said,
   ask (in the same question as the above) which of these to use; more than one can be combined:
   1. **Input data and expected output from the user**: a folder of input images (OME-Zarr or
@@ -64,8 +65,8 @@ work. (Podman also works: `--runtime podman` below.) Use a venv with the templat
   2. **Test data from the source**: the tool's own test data or examples (with expected results
      where the source has them). Without expected results, make them with a **reference run**:
      the original tool, at the pinned version, run directly the way its own docs/tests do
-     (not through `biomero_auto`), on the same data; the container must then reproduce it.
-  3. **Synthetic data** (`biomero-auto synthetic`): images with bright objects on a dark
+     (not through `bilayers_auto`), on the same data; the container must then reproduce it.
+  3. **Synthetic data** (`bilayers-auto synthetic`): images with bright objects on a dark
      background, generated to match what the tool reads (size, Z, T, channels, number and
      radius of objects, noise, dtype), with their ground-truth labels as the expected output.
      The ground truth fits tools that segment or detect objects; for other tools, synthetic
@@ -99,7 +100,7 @@ commit unless asked). It gets:
 - `config.yaml` — written from the source (step 3); the template has none.
 - `wrapper.py` — the template's root `wrapper.py`, with the tool hook (step 4).
 - `Dockerfile` — the template's root `Dockerfile` with the tool layer filled in (step 5).
-- `requirements-dev.txt` — `biomero-auto-container[test] @ git+https://github.com/NL-BioImaging/biomero-auto-container.git`.
+- `requirements-dev.txt` — `bilayers-auto-container[test] @ git+https://github.com/NL-BioImaging/bilayers-auto-container.git`.
 - `tests/test_workflow.py` (+ `pytest.ini` with `pythonpath = tests` and the `container`
   marker) — see step 6.
 - `tests/data/in` and `tests/data/expected` — the test data chosen in step 1, when it is small
@@ -112,8 +113,8 @@ commit unless asked). It gets:
   outputs and BIOMERO registration. Directly under its title, a generated-with notice, e.g.:
 
   > This BIOMERO workflow container was generated with AI assistance (<assistant>, using the
-  > `create-biomero-container` skill) using
-  > [biomero-auto-container](https://github.com/NL-BioImaging/biomero-auto-container) from
+  > `create-bilayers-container` skill) using
+  > [bilayers-auto-container](https://github.com/NL-BioImaging/bilayers-auto-container) from
   > [<tool name>](<source URL>). It runs in [BIOMERO](https://github.com/NL-BioImaging/biomero),
   > is described by a [bilayers](https://github.com/bilayer-containers/bilayers) spec
   > (`config.yaml`), and adds OME-Zarr conversion and RO-Crate metadata. See
@@ -130,7 +131,7 @@ Do not copy `src/`, `tests/`, `scripts/`, `examples/` or `.claude/`.
 **Always remove any existing `descriptor.json` (and `descriptor.yaml`)** after drafting
 `config.yaml` from it (`git rm` when adapting in place). BIOMERO looks for `descriptor.json`,
 then `descriptor.yaml`, then `config.yaml`, so a leftover descriptor silently keeps the workflow
-in the old BIAFLOWS mode; it is also no longer copied into the image. `biomero-auto
+in the old BIAFLOWS mode; it is also no longer copied into the image. `bilayers-auto
 to-biaflows` regenerates one if a BIAFLOWS-only deployment ever needs it. Remove other files of
 the old interface too (BIAFLOWS/Cytomine-only code and dependencies).
 Use `examples/classical_segmentation/` only as a reference for the form of a finished workflow.
@@ -168,7 +169,7 @@ Draft it from the source (see source types), then go through every field:
    — calls it with `--infolder --outfolder --gtfolder --local -nmc --<id> value`.
 3. Fractal task: `run(spec=CONFIG, tool=fractal_tool([TASK_PYTHON, "-m", "<package>.<task module>"], kind="parallel", prepare=..., exclude=[...]))`;
    Fractal workflow: `run(spec=CONFIG, tool=fractal_workflow(<fractal_steps.json>, task_python=TASK_PYTHON))`
-   (`biomero_auto.fractal`; see the source types for `prepare`, the copies and image types).
+   (`bilayers_auto.fractal`; see the source types for `prepare`, the copies and image types).
 4. Anything else (a pipeline file to fill in, a Python API, several steps, a Galaxy workflow): a small
    `tool(ctx)` function using `ctx.params`, `ctx.inputs`, `ctx.outputs`, `ctx.workdir` and,
    where useful, `ctx.command()`. Keep it in `wrapper.py` and reuse the tool's own API.
@@ -187,23 +188,23 @@ conversion the workflow requires), rather than upgrading the tool; note it in th
 Tool environments from conda (micromamba lock files) need `curl bzip2` next to `git` in the
 template's `apt-get install` line.
 In the BIOMERO layer, install the template from GitHub instead of copying `src/`:
-`pip install "biomero-auto-container @ git+https://github.com/NL-BioImaging/biomero-auto-container.git"`.
-If the tool's image has no Python >= 3.12, give `biomero_auto` its own environment and point
+`pip install "bilayers-auto-container @ git+https://github.com/NL-BioImaging/bilayers-auto-container.git"`.
+If the tool's image has no Python >= 3.12, give `bilayers_auto` its own environment and point
 `ENTRYPOINT` at it, e.g.:
 
 ```dockerfile
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
-RUN python -m pip install uv && uv venv /opt/biomero --python 3.12     && uv pip install --no-cache --python /opt/biomero/bin/python "biomero-auto-container @ git+https://github.com/NL-BioImaging/biomero-auto-container.git"     && chmod -R a+rX /opt/biomero /opt/uv-python
+RUN python -m pip install uv && uv venv /opt/biomero --python 3.12     && uv pip install --no-cache --python /opt/biomero/bin/python "bilayers-auto-container @ git+https://github.com/NL-BioImaging/bilayers-auto-container.git"     && chmod -R a+rX /opt/biomero /opt/uv-python
 ENTRYPOINT ["/opt/biomero/bin/python", "/app/wrapper.py"]
 ```
 
-Likewise when the tool's dependencies conflict with `biomero_auto`'s (e.g. zarr 2 vs 3, as for
+Likewise when the tool's dependencies conflict with `bilayers_auto`'s (e.g. zarr 2 vs 3, as for
 Fractal tasks): install the tool into its own venv (`python -m venv /opt/<tool>`) from a
 `requirements-tool.txt` with the exact versions of a working environment (`pip freeze`, without
 platform-only packages), and call it with that venv's Python. Use the same file for the local
 tests and CI.
 
-If the workflow needs `biomero_auto` changes that are not on GitHub yet, build the local
+If the workflow needs `bilayers_auto` changes that are not on GitHub yet, build the local
 container test from a copy of the repository whose BIOMERO layer installs a wheel of the local
 template (`pip wheel --no-deps -w <copy>/wheels <template>`), say so in the notes, and rebuild
 from GitHub once the template is pushed.
@@ -213,7 +214,7 @@ in the image itself (`docker inspect`), outside the repository:
 
 ```dockerfile
 LABEL org.opencontainers.image.title="<workflow name>" \
-      org.opencontainers.image.description="BIOMERO workflow container for <tool name>, generated using biomero-auto-container (https://github.com/NL-BioImaging/biomero-auto-container)" \
+      org.opencontainers.image.description="BIOMERO workflow container for <tool name>, generated using bilayers-auto-container (https://github.com/NL-BioImaging/bilayers-auto-container)" \
       org.opencontainers.image.source="<workflow repository URL>" \
       org.opencontainers.image.licenses="<tool license>"
 ```
@@ -236,25 +237,25 @@ on Slurm, so it must work under both:
 
 All of these must pass before the workflow is reported as done:
 
-1. `biomero-auto validate config.yaml --biomero` (bilayers LinkML schema + BIOMERO's parser).
-2. `biomero-auto command config.yaml -- --<flag>=<value> ...` with the arguments BIOMERO
+1. `bilayers-auto validate config.yaml --biomero` (bilayers LinkML schema + BIOMERO's parser).
+2. `bilayers-auto command config.yaml -- --<flag>=<value> ...` with the arguments BIOMERO
    would send (see the contract): the tool command must be what the tool expects.
 3. `pytest -m "not container"` on the workflow's `tests/test_workflow.py`, which uses
-   `biomero_auto`'s public API: `biomero_auto.cli.main(["validate", "config.yaml", "--biomero"])`,
+   `bilayers_auto`'s public API: `bilayers_auto.cli.main(["validate", "config.yaml", "--biomero"])`,
    `contract.biomero_argv` + `BilayersSpec.command` (the tool command BIOMERO's arguments give),
    Dockerfile checks (entrypoint `wrapper.py`, fully qualified `FROM`, no `USER`), a check that
    no `descriptor.json`/`descriptor.yaml` exists, and a
    `container`-marked test calling `container_test.container_test(...)` on the test data:
    `sample=` and `expected=` for stored data, or `synthetic=Synthetic(...)` (from
-   `biomero_auto.sample_data`), whose ground truth is then the expected output.
-4. `biomero-auto container-test config.yaml`: builds the image with Docker and
+   `bilayers_auto.sample_data`), whose ground truth is then the expected output.
+4. `bilayers-auto container-test config.yaml`: builds the image with Docker and
    runs it on a job laid out like BIOMERO's (`<job>/data/in`, `<job>/data/out`, the `data`
    folder mounted at `/data`) with the arguments BIOMERO's own code generates, on the test
    data from step 1:
    - user or source data: `--sample <input folder> --expected <expected folder>`;
    - synthetic data: `--synthetic` with `--synthetic-size/-z/-t/-channels/-objects/-radius/-noise/-dtype`
      set to what the tool reads (its ground truth is compared unless `--expected` is given);
-     or generate it once with `biomero-auto synthetic <in> --expected <expected> ...` and pass
+     or generate it once with `bilayers-auto synthetic <in> --expected <expected> ...` and pass
      the folders as above;
    - neither: a small generated OME-Zarr, without comparison;
    - and, when the tool needs metadata OMERO exports lack (step 1), the OMERO-like copy, with
@@ -266,7 +267,7 @@ All of these must pass before the workflow is reported as done:
    labels|intensities` overrides the detection), other files identical. A reference run with the
    same pinned versions should match exactly. A mismatch fails the test; find
    out whether the container, the parameters (`--param`) or the expectation is wrong before
-   changing a tolerance, and never loosen one only to pass. `biomero-auto compare <out> <expected>`
+   changing a tolerance, and never loosen one only to pass. `bilayers-auto compare <out> <expected>`
    re-checks a kept job. Use `--param name=value` for parameters a meaningful run needs.
    Use `--keep <folder>` and
    inspect `<job>/data/out`: plausible results in the declared output formats (converted only
@@ -282,7 +283,7 @@ Then write (or update) `generated-notes.md` in the workflow repository, with:
 
 - a short intro: created from / converted in place from which source (URL, original format,
   e.g. BIAFLOWS `descriptor.json` + `BiaflowsJob` wrapper), following this procedure, with a
-  link to biomero-auto-container, and that it was done with AI assistance (the assistant, as
+  link to bilayers-auto-container, and that it was done with AI assistance (the assistant, as
   in the README notice);
 - **Tasks performed**: a table `| Change | What it does |`, one row per file or group of files
   (renames with `git mv`, removals with `git rm` and why, new `config.yaml` and the choices in
@@ -305,7 +306,7 @@ here and leave the changes uncommitted, and do this step only when asked):
   (the tasks-performed table in `generated-notes.md` is the basis), and push to `origin`. For a
   new repository without a remote, ask where to create it before pushing.
 - **This template** is never committed or pushed by this procedure. If it changed (skill,
-  `biomero_auto`), leave the changes uncommitted, run its tests, and tell the user what
+  `bilayers_auto`), leave the changes uncommitted, run its tests, and tell the user what
   changed; commit and push it only when the user asks.
 
 Report the commit hashes and check the CI run of each push. Pushing does not publish the

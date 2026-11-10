@@ -9,5 +9,5 @@ OME-Zarr from BIOMERO is converted to TIFF for it and its TIFF labels back to OM
 The template's tests and CI use it. Build and run it like BIOMERO would (from the repository root):
 
 ```
-biomero-auto container-test examples/classical_segmentation/config.yaml
+bilayers-auto container-test examples/classical_segmentation/config.yaml
 ```

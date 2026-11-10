@@ -1,2 +1,2 @@
 # vendored upstream files are checked byte-for-byte (tests/test_spec.py)
-src/biomero_auto/_vendor/** -text
+src/bilayers_auto/_vendor/** -text

@@ -6,19 +6,19 @@ the closest and combine.
 ## Existing bilayers workflow (`config.yaml` with `docker_image`, `exec_function`)
 
 Reuse its `config.yaml`; check folder inputs/outputs against the BIOMERO contract (an
-output folder BIOMERO can set), fix types the schema rejects (`biomero-auto validate`).
+output folder BIOMERO can set), fix types the schema rejects (`bilayers-auto validate`).
 If its image entrypoint is already a BIOMERO-aware wrapper, it may not need this template.
 
 ## BIAFLOWS / NEUBIAS workflow (`descriptor.json` with `schema-version: cytomine-0.1`, `wrapper.py`)
 
-- Draft: `biomero-auto from-biaflows <descriptor URL or path> -o config.yaml`, then delete
+- Draft: `bilayers-auto from-biaflows <descriptor URL or path> -o config.yaml`, then delete
   `descriptor.json` (BIOMERO would otherwise pick it before `config.yaml`).
   (`--input-format`/`--output-format` from what the wrapper reads/writes). Then fill in
   citations, license, image flags (`depth`, `timepoints`, ...), output `subtype`, labels.
 - Keep the original wrapper and its pipeline/macros unchanged in `/app/biaflows/`; install
   its own dependencies (BIAFLOWS utilities, Cytomine client, tool) as in its Dockerfile.
 - Hook: `biaflows_tool("<its python> /app/biaflows/wrapper.py")`. Parameter ids stay the
-  descriptor ids. If the wrapper needs Python < 3.12, give `biomero_auto` its own venv.
+  descriptor ids. If the wrapper needs Python < 3.12, give `bilayers_auto` its own venv.
 
 ## Fractal task (a package with `__FRACTAL_MANIFEST__.json`; https://fractal-analytics-platform.github.io/)
 
@@ -28,7 +28,7 @@ A Fractal task is a Python function run as `<python> <task>.py --args-json <file
 `non_parallel` one, and init (non-parallel, returns a `parallelization_list`) then compute
 (parallel) for a `compound` one. It needs no Fractal server. Do not use BIAFLOWS for it.
 
-- Draft: `biomero-auto from-fractal <manifest path or URL> [--task <name>] --cli-command
+- Draft: `bilayers-auto from-fractal <manifest path or URL> [--task <name>] --cli-command
   "/opt/fractal/bin/python -m <package>.<task module>" -o config.yaml`; it prints the
   `wrapper.py` line. Parameters come from the manifest's pydantic JSON schemas (`zarr_url(s)`,
   `zarr_dir`, `init_args` are set by the hook, not the user); nested objects become
@@ -39,7 +39,7 @@ A Fractal task is a Python function run as `<python> <task>.py --args-json <file
 - Draft from the manifest of the **release you pin**, not `main`: tasks and their arguments
   change between releases (read the task function at that tag).
 - Hook: `fractal_tool([TASK_PYTHON, "-m", "<package>.<task module>"], kind=..., prepare=...,
-  exclude=[...])` (`biomero_auto.fractal`). It copies each input image into the output folder
+  exclude=[...])` (`bilayers_auto.fractal`). It copies each input image into the output folder
   (tasks write into the image they are given), runs the task on the copies, renames new images
   to names ending in `.zarr` (tasks often write `<zarr_url><suffix>`, e.g. `a.ome.zarr_fused`,
   which BIOMERO would not import), and removes the copies when the task reported new images
@@ -63,14 +63,14 @@ A Fractal task is a Python function run as `<python> <task>.py --args-json <file
   package's `requires-python`), installed from `requirements-tool.txt`: the `pip freeze` of a
   working environment (drop platform-only packages, e.g. `colorama` from Windows) with the
   package pinned to its release commit (`git+https://...@<sha>` when it is not on PyPI).
-  fractal-tasks-core 1.x tasks need zarr 2 while `biomero_auto` uses zarr 3, so they cannot
+  fractal-tasks-core 1.x tasks need zarr 2 while `bilayers_auto` uses zarr 3, so they cannot
   share an environment (2.x, built on ngio, uses zarr 3; keep the separate venv anyway, for its
   pins). Use the same environment for local tests (`FRACTAL_PYTHON`) and CI as in the image.
 - Inputs/outputs: OME-Zarr (`format: [zarr]`), `pyramidal: True`; set `depth` from the task's
   tags (2D/3D) and `tiled` for tasks working on fields of view.
 - Test data: Fractal task packages usually have tests with small OME-Zarr data (`tests/data`)
   or download it (Zenodo via pooch). Without expected outputs in the source, make them with a
-  **reference run of the original task**, called directly (`--args-json`), outside biomero_auto,
+  **reference run of the original task**, called directly (`--args-json`), outside bilayers_auto,
   and check the container reproduces it; do the same for the OMERO-like input (the reference
   then gets the same rebuilt tables). `--out-json` must not exist yet (the task refuses to run).
 - Slurm: `meta_parallel`/`meta_non_parallel` in the manifest (cpus, memory) are what the task
@@ -79,14 +79,14 @@ A Fractal task is a Python function run as `<python> <task>.py --args-json <file
 ### Fractal workflow (JSON: an export from fractal-web, or a workflow template)
 
 A Fractal workflow is a list of tasks with the arguments each step uses. Its JSON comes in three
-forms, all read by `biomero-auto from-fractal`: an export (`{name, description, task_list}`,
+forms, all read by `bilayers-auto from-fractal`: an export (`{name, description, task_list}`,
 each task `{"pkg_name", "version", "name"}`, with `args_non_parallel`, `args_parallel`,
 `type_filters`, `meta_*`, `alias`, `description`), a legacy export (fractal-server < 2.11: tasks
 as `{"source": "pip_remote:<pkg>:<version>:<extras>::<task>"}`, filters in `input_filters.types`),
 and a template from the Fractal website (the workflow under `data`, with `name`, `version`,
 `description`). Do not use BIAFLOWS for it.
 
-- Draft: `biomero-auto from-fractal <workflow.json> -o config.yaml` writes the config and
+- Draft: `bilayers-auto from-fractal <workflow.json> -o config.yaml` writes the config and
   `fractal_steps.json`, the plan `wrapper.py` runs:
   `run(spec=CONFIG, tool=fractal_workflow(Path(__file__).with_name("fractal_steps.json"), task_python=...))`.
   The export has no argument schemas, only values: each package's manifest is read from its
@@ -134,7 +134,7 @@ tool's repository (`$__tool_directory__/x.py`) or a program, `<inputs>` (params,
 conditionals), `<outputs>` and `<tests>` with test data. A workflow (`.ga`, JSON) chains Tool
 Shed tools by id and version; each step's `tool_state` fixes its parameter values. The
 container runs the tools' scripts/programs directly, without Galaxy. Do not use BIAFLOWS for it.
-(Done for the IWC nuclei segmentation workflow: `W_GalaxyNucleiSegmentation-BIOMERO`.)
+(Done for the IWC nuclei segmentation workflow: `bilayers_GalaxyNucleiSegmentation`.)
 
 - **Source of the workflow**: prefer its IWC repository (github.com/galaxyproject/iwc,
   `workflows/<topic>/<workflow>/`: the `.ga` with its `release`, `CHANGELOG.md`,
@@ -151,7 +151,7 @@ container runs the tools' scripts/programs directly, without Galaxy. Do not use 
   that the scripts do not differ. Shared macros (`creators.xml`, `tests.xml`, ...) are git
   symlinks to `../../macros/`: copy the files they point to, not the link. Keep a table of tool,
   version, Tool Shed changeset and source commit (e.g. `galaxy/SOURCES.md`) and the license.
-- **Draft**: `biomero-auto from-galaxy <tool .xml | workflow .ga, path or URL> -o config.yaml`.
+- **Draft**: `bilayers-auto from-galaxy <tool .xml | workflow .ga, path or URL> -o config.yaml`.
   For a tool: its params (sections and conditionals flattened to `<name>__<param>`, the
   conditional's options noted in each description), data input formats and outputs; macros
   from the same file are expanded (with their tokens and `<yield/>`), macros from imported
@@ -190,7 +190,7 @@ container runs the tools' scripts/programs directly, without Galaxy. Do not use 
   environment reads every variant: test each step on OMERO-like OME-Zarr in the container. Keep
   the workflow's pins (do not upgrade a tool's requirements to make it read a format); if a
   pinned step cannot read OME-Zarr (e.g. giatools 0.6.0: `KeyError: 'unit'` on the channel axis,
-  which OME-NGFF gives no unit), declare `format: [tiff]` so biomero_auto converts (required by
+  which OME-NGFF gives no unit), declare `format: [tiff]` so bilayers_auto converts (required by
   the workflow), and say why in `config.yaml` and the notes. Converted OME-TIFF is TCZYX and tools
   keep the input's axes, so their outputs may be 5-D where Galaxy's test gave 2-D; old steps can
   refuse that (scikit-image 0.14: "Only 2-D and 3-D images supported"): drop singleton T/C/Z

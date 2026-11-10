@@ -15,5 +15,5 @@ jobs:
           cache: pip
       - run: pip install -e ".[test]"
       - name: Validate workflow configs
-        run: for config in $(ls config.yaml examples/*/config.yaml 2>/dev/null); do biomero-auto validate "$config" --biomero || exit 1; done
+        run: for config in $(ls config.yaml examples/*/config.yaml 2>/dev/null); do bilayers-auto validate "$config" --biomero || exit 1; done
       - run: pytest

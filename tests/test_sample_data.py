@@ -5,10 +5,10 @@ import numpy as np
 import pytest
 import tifffile
 
-from biomero_auto.cli import main
-from biomero_auto.compare import compare_images, compare_outputs, image_stem, read_image, unpack
-from biomero_auto.conversion import ZARR, find_images, image_format
-from biomero_auto.sample_data import Synthetic, synthetic_image, write_synthetic
+from bilayers_auto.cli import main
+from bilayers_auto.compare import compare_images, compare_outputs, image_stem, read_image, unpack
+from bilayers_auto.conversion import ZARR, find_images, image_format
+from bilayers_auto.sample_data import Synthetic, synthetic_image, write_synthetic
 
 
 def test_synthetic_image_has_the_requested_objects_and_dimensions():
@@ -111,7 +111,7 @@ def test_cli_synthetic_and_compare(tmp_path, capsys):
 
 
 def test_intensity_images_are_not_mistaken_for_labels():
-    from biomero_auto.compare import is_labels
+    from bilayers_auto.compare import is_labels
 
     rng = np.random.default_rng(0)
     intensities = rng.integers(100, 4000, size=(64, 64), dtype=np.uint16)

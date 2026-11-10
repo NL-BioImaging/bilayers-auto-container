@@ -24,7 +24,7 @@ repository's `config.yaml` directly at the configured tag. It looks for `descrip
 
 ## What the wrapper does with them
 
-`biomero_auto.run`:
+`bilayers_auto.run`:
 
 1. Parses the arguments against the spec (also bilayers-UI style and BIAFLOWS style, plus
    `--params params.yaml`); validates choices, numbers and required values.
@@ -59,7 +59,7 @@ defaults: no zip, and no input copy in `data/out`.
 
 Environment overrides: `BIOMERO_CONVERT_INPUTS`, `BIOMERO_TOOL_FORMATS`, `BIOMERO_OUTPUT_FORMAT`, `BIOMERO_ZARR_FORMAT`,
 `BIOMERO_RO_CRATE`, `BIOMERO_RO_CRATE_INPUT`, `BIOMERO_ZIP_OUTPUT`, `BIOMERO_WORKDIR`
-(see `src/biomero_auto/runner.py`).
+(see `src/bilayers_auto/runner.py`).
 
 ## Running outside Slurm (Docker)
 
@@ -77,4 +77,4 @@ Podman takes the same arguments (add `:Z` to the volume on SELinux hosts).
 
 BIOMERO versions that only read `descriptor.json` (BIAFLOWS, `cytomine-0.1`) call the
 container with `--infolder --outfolder --gtfolder --local -nmc --<id> <value>`. The wrapper
-accepts these too; generate the descriptor with `biomero-auto to-biaflows config.yaml -o descriptor.json`.
+accepts these too; generate the descriptor with `bilayers-auto to-biaflows config.yaml -o descriptor.json`.

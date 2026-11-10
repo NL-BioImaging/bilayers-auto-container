@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "biomero-auto-container"
+name = "bilayers-auto-container"
 version = "0.1.0"
 description = "Template for BIOMERO workflow containers described by a bilayers spec, with OME-Zarr conversion and RO-Crate metadata"
 readme = "README.md"
@@ -22,7 +22,7 @@ dependencies = [
 validate = ["linkml"]
 test = [
     "pytest>=7.0",
-    "biomero-auto-container[validate]",
+    "bilayers-auto-container[validate]",
     # BIOMERO's own bilayers parsing, for the contract tests
     "biomero>=2.5",
     # the example tool in config.yaml
@@ -30,16 +30,16 @@ test = [
 ]
 
 [project.scripts]
-biomero-auto = "biomero_auto.cli:main"
+bilayers-auto = "bilayers_auto.cli:main"
 
 [project.urls]
-Repository = "https://github.com/NL-BioImaging/biomero-auto-container"
+Repository = "https://github.com/NL-BioImaging/bilayers-auto-container"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"biomero_auto._vendor.bilayers" = ["LICENSE", "UPSTREAM.json"]
+"bilayers_auto._vendor.bilayers" = ["LICENSE", "UPSTREAM.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

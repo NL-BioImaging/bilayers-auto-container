@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 # --- BIOMERO layer: spec parsing, OME-Zarr conversion, RO-Crate ---
 # If the tool needs another Python, install this into its own environment instead,
 # e.g. python3.12 -m venv /opt/biomero && /opt/biomero/bin/pip install ..., and use it in ENTRYPOINT.
-COPY pyproject.toml README.md LICENSE /opt/biomero-auto/
-COPY src /opt/biomero-auto/src
-RUN pip install /opt/biomero-auto
+COPY pyproject.toml README.md LICENSE /opt/bilayers-auto/
+COPY src /opt/bilayers-auto/src
+RUN pip install /opt/bilayers-auto
 
 # folder (in the build context) holding this workflow's config.yaml
 ARG WORKFLOW_DIR=.

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from biomero_auto import BilayersSpec, validate_config
-from biomero_auto.cli import _biomero_check
+from bilayers_auto import BilayersSpec, validate_config
+from bilayers_auto.cli import _biomero_check
 from conftest import ROOT, biomero_argv
 
 CONFIGS = [path for path in [ROOT / "config.yaml", *sorted(ROOT.glob("examples/*/config.yaml"))] if path.exists()]

@@ -66,7 +66,7 @@ def validate_config(config_path: str | Path) -> list[str]:
     try:
         import linkml.validator
     except ImportError as error:
-        raise ImportError("LinkML validation needs linkml: pip install 'biomero-auto-container[validate]'") from error
+        raise ImportError("LinkML validation needs linkml: pip install 'bilayers-auto-container[validate]'") from error
     from bilayers_schema import schema
 
     report = linkml.validator.validate(load_config(config_path), schema)
