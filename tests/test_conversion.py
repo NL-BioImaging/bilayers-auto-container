@@ -62,4 +62,4 @@ def test_images_with_the_same_internal_name_do_not_overwrite_each_other(tmp_path
     staging, found = prepare_input(folder, {ZARR}, tmp_path / "staging")
     assert found == {TIFF}
     assert [image.name for image in find_images(staging)] == ["a.ome.zarr", "b.ome.zarr"]
-    assert [entry.name for entry in staging.iterdir()] == ["a.ome.zarr", "b.ome.zarr"]  # no leftovers
+    assert sorted(entry.name for entry in staging.iterdir()) == ["a.ome.zarr", "b.ome.zarr"]  # no leftovers
