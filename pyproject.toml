@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bilayers-auto-container"
 version = "0.1.0"
-description = "Template for bilayers workflow containers described by a bilayers spec, with OME-Zarr conversion and RO-Crate metadata"
+description = "Template for Slurm workflow containers described by a bilayers spec, with OME-Zarr conversion and RO-Crate metadata"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
