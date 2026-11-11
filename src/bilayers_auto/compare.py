@@ -105,7 +105,10 @@ def compare_tables(actual: Path, expected: Path, rtol: float = 1e-3) -> tuple[bo
     for r, (row_actual, row_expected) in enumerate(zip(rows_actual, rows_expected)):
         for c, (a, e) in enumerate(zip(row_actual, row_expected)):
             try:
-                same = math.isclose(float(a), float(e), rel_tol=rtol, abs_tol=rtol)
+                a_number, e_number = float(a), float(e)
+                # missing values (NaN) are equal to each other, as e.g. CellProfiler writes them
+                same = (math.isnan(a_number) and math.isnan(e_number)) or \
+                    math.isclose(a_number, e_number, rel_tol=rtol, abs_tol=rtol)
             except ValueError:
                 same = a == e
             if not same:

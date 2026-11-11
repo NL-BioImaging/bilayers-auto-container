@@ -84,6 +84,17 @@ def test_compare_outputs_matches_names_and_tables(tmp_path):
     assert results["synthetic_1.tif"].actual is None and not results["synthetic_1.tif"].ok
 
 
+def test_tables_with_missing_values_compare_equal(tmp_path):
+    """NaN (e.g. CellProfiler's empty measurements) matches NaN, not a number."""
+    from bilayers_auto.compare import compare_tables
+
+    (tmp_path / "a.csv").write_text("x,y\n1,nan\n")
+    (tmp_path / "b.csv").write_text("x,y\n1,NaN\n")
+    (tmp_path / "c.csv").write_text("x,y\n1,0\n")
+    assert compare_tables(tmp_path / "a.csv", tmp_path / "b.csv")[0]
+    assert not compare_tables(tmp_path / "a.csv", tmp_path / "c.csv")[0]
+
+
 def test_a_single_output_image_matches_a_single_expected_one(tmp_path):
     write_synthetic(tmp_path / "in", tmp_path / "expected")
     out = tmp_path / "out"
