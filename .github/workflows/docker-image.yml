@@ -1,21 +1,32 @@
 name: Docker image
 
-# The Slurm client picks the image version from the repository tag, so publish on release.
+# Builds the workflow's image on each release (the Slurm client picks the image version from the
+# repository tag) and, when PUBLISH is "true", pushes it to the registry in config.yaml.
+# PUBLISH is set when the workflow repository is created: "true" only when the user gave a
+# registry and namespace for the image (docker_image.org, e.g. <org> for Docker Hub or
+# quay.io/<org>). Publishing needs that registry's credentials as repository (or organization)
+# secrets: REGISTRY_USERNAME and REGISTRY_TOKEN, or DOCKERHUB_USERNAME and DOCKERHUB_TOKEN.
 on:
   release:
     types: [published]
   workflow_dispatch:
 
+env:
+  PUBLISH: "false"
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || secrets.DOCKERHUB_USERNAME }}
+      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - name: Workflow config present
         id: workflow
         # the template itself has no workflow (config.yaml); generated workflow repositories do
         run: echo "present=$([ -f config.yaml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-      - name: Image name from config.yaml
+      - name: Image name and registry from config.yaml
         id: image
         if: steps.workflow.outputs.present == 'true'
         run: |
@@ -24,19 +35,29 @@ jobs:
           image = yaml.safe_load(open("config.yaml"))["docker_image"]
           print(f"name={image['org']}/{image['name']}")
           print(f"tag={image['tag']}")
+          host = image["org"].split("/")[0]
+          print(f"registry={host if '.' in host or ':' in host else ''}")
           PY
       - name: Release tag must match docker_image.tag
         if: steps.workflow.outputs.present == 'true' && github.event_name == 'release'
         run: test "${{ github.event.release.tag_name }}" = "${{ steps.image.outputs.tag }}"
+      - name: Registry credentials present
+        if: steps.workflow.outputs.present == 'true' && env.PUBLISH == 'true'
+        run: |
+          if [ -z "$REGISTRY_USERNAME" ] || [ -z "$REGISTRY_TOKEN" ]; then
+            echo "::error::PUBLISH is true but the REGISTRY_* (or DOCKERHUB_*) secrets are missing"
+            exit 1
+          fi
       - uses: docker/login-action@v3
-        if: steps.workflow.outputs.present == 'true'
+        if: steps.workflow.outputs.present == 'true' && env.PUBLISH == 'true'
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ${{ steps.image.outputs.registry }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_TOKEN }}
       - uses: docker/build-push-action@v6
         if: steps.workflow.outputs.present == 'true'
         with:
-          push: true
+          push: ${{ env.PUBLISH == 'true' }}
           platforms: linux/amd64
           tags: |
             ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}

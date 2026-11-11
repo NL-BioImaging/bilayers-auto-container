@@ -55,9 +55,13 @@ work. (Podman also works: `--runtime podman` below.) Use a venv with the templat
 ## 1. Get the source
 
 - The URL the user gave is the source of truth. Ask only for what cannot be derived:
-  the Docker Hub org/name to publish to and the target directory, if not given
-  (default: a sibling directory `../bilayers_<ToolName>`, image name `bilayers_<toolname>` in
-  lowercase), and the test data (below).
+  the target directory and image name, if not given (default: a sibling directory
+  `../bilayers_<ToolName>`, image name `bilayers_<toolname>` in lowercase), and the test data
+  (below).
+- **Publishing the image**: always ask (in the same question) whether the release workflow
+  should publish the image, and if so to which registry and namespace: Docker Hub `<org>`,
+  `quay.io/<org>` or another registry the user provides. Do not assume a registry or reuse one
+  from another workflow. Without an answer, the image is built on release but not published.
 - **Test data**, used to check the container's results in step 6. Unless the user already said,
   ask (in the same question as the above) which of these to use; more than one can be combined:
   1. **Input data and expected output from the user**: a folder of input images (OME-Zarr or
@@ -109,7 +113,9 @@ commit unless asked). It gets:
   where to get it (and the `container` test skips when it is absent). Synthetic data is not
   stored: the test generates it with the same settings.
 - `.github/workflows/ci.yml` (validate + pytest; `actions/setup-python` with `cache: pip` needs
-  `cache-dependency-path: requirements-dev.txt`) and the template's `docker-image.yml`.
+  `cache-dependency-path: requirements-dev.txt`) and the template's `docker-image.yml`, which
+  builds the image on each release. Set its `PUBLISH` to `"true"` only when the user gave a
+  registry in step 1 (it then pushes to `docker_image.org`); otherwise leave `"false"`.
 - `.gitignore`, `.dockerignore`, and a `README.md` describing the workflow, its parameters,
   outputs and registration with the Slurm client. Directly under its title, a generated-with notice, e.g.:
 
@@ -161,6 +167,10 @@ Draft it from the source (see source types), then go through every field:
 - `exec_function.cli_command`: the tool command inside the container (not `wrapper.py`).
 - `citations` (name, DOI, license, description of the actual tool) and `docker_image`
   (org, name, `tag` = the release tag, platform) — these feed the RO-Crate and the Slurm client.
+  `org` is the registry namespace the image is published to, with the registry host for any
+  registry but Docker Hub (e.g. `quay.io/<org>`): the Slurm client pulls
+  `docker://<org>/<name>:<tag>`. When the user gave no registry, use a placeholder namespace
+  (e.g. `local`) and say in the README that the image is not published.
 
 ## 4. Choose the tool hook in `wrapper.py`
 
@@ -277,7 +287,7 @@ All of these must pass before the workflow is reported as done:
    single uncompressed `<algorithm_folder_name>.zip` containing all of that. A failing build or run is fixed in the Dockerfile/config/wrapper,
    not skipped.
 
-Ask before pushing images or the repository. Report what was verified and what was not
+Ask before pushing images or the repository; publishing the image is optional (step 8). Report what was verified and what was not
 (e.g. only synthetic data, GPU untested).
 
 Then write (or update) `generated-notes.md` in the workflow repository, with:
@@ -313,8 +323,18 @@ here and leave the changes uncommitted, and do this step only when asked):
 Report the commit hashes and check the CI run of each push. Pushing does not publish the
 image or register the workflow; that is step 8.
 
-## 8. Release and register (tell the user; do not publish without being asked)
+## 8. Release, publish and register (optional; only when the user asks)
 
-- Push the repo, create release tag `vX.Y.Z` matching `docker_image.tag`; the image
-  `org/name:vX.Y.Z` must be pushed (`.github/workflows/docker-image.yml` does this on release).
-- Register it with the Slurm client: `references/biomero-contract.md`, "Registering a workflow".
+Each part needs the user's explicit request; a workflow repository is complete without them.
+
+- **Release:** a release tag `vX.Y.Z` matching `docker_image.tag`.
+- **Build and publish the image:** `.github/workflows/docker-image.yml` builds the image on each
+  release. Only with `PUBLISH: "true"` (a registry given in step 1) it also pushes
+  `<org>/<name>:vX.Y.Z` (and `latest`), logging in to the registry host in `docker_image.org`
+  (Docker Hub when there is none) with the repository's Actions secrets `REGISTRY_USERNAME`/
+  `REGISTRY_TOKEN` (or `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`); it fails clearly when they are
+  missing. The user adds the secrets (repository or organization secrets, not environment
+  secrets); never ask for or handle the credentials. Check the run and that the tag is in the
+  registry.
+- **Register** it with the Slurm client (`references/biomero-contract.md`, "Registering a
+  workflow"): only once the image is in a registry the Slurm cluster can pull from.
