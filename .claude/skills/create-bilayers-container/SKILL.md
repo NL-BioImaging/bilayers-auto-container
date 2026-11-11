@@ -246,6 +246,11 @@ on Slurm, so it must work under both:
 
 ## 6. Verify
 
+Testing with images means running the container itself on test images (checks 3 and 4 below),
+laid out like a Slurm job. Do not deploy BIOMERO, OMERO or a Slurm cluster for it: that is a
+separate integration check, done only when the user asks, and slow on a fresh cluster (it pulls
+every configured image).
+
 All of these must pass before the workflow is reported as done:
 
 1. `bilayers-auto validate config.yaml --slurm` (bilayers LinkML schema + the Slurm client's parser).
