@@ -117,7 +117,7 @@ commit unless asked). It gets:
   builds the image on each release. Set its `PUBLISH` to `"true"` only when the user gave a
   registry in step 1 (it then pushes to `docker_image.org`); otherwise leave `"false"`.
 - `.gitignore`, `.dockerignore`, and a `README.md` describing the workflow, its parameters,
-  outputs and registration with the Slurm client. Directly under its title, a generated-with notice, e.g.:
+  outputs and how to run it. Directly under its title, a generated-with notice, e.g.:
 
   > This bilayers workflow container was generated with AI assistance (<assistant>, using the
   > `create-bilayers-container` skill) using
@@ -321,9 +321,9 @@ here and leave the changes uncommitted, and do this step only when asked):
   changed; commit and push it only when the user asks.
 
 Report the commit hashes and check the CI run of each push. Pushing does not publish the
-image or register the workflow; that is step 8.
+image; that is step 8.
 
-## 8. Release, publish and register (optional; only when the user asks)
+## 8. Release and publish (optional; only when the user asks)
 
 Each part needs the user's explicit request; a workflow repository is complete without them.
 
@@ -336,5 +336,3 @@ Each part needs the user's explicit request; a workflow repository is complete w
   missing. The user adds the secrets (repository or organization secrets, not environment
   secrets); never ask for or handle the credentials. Check the run and that the tag is in the
   registry.
-- **Register** it with the Slurm client (`references/biomero-contract.md`, "Registering a
-  workflow"): only once the image is in a registry the Slurm cluster can pull from.

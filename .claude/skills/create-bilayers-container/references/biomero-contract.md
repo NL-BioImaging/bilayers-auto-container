@@ -48,18 +48,6 @@ zip to the OMERO server, and `SLURM_Import_Results` (biomero-scripts) unzips it 
 It has no RO-Crate handling, and images inside a nested zip are not imported. Hence the
 container's defaults: no zip, and no input copy in `data/out` (it would be imported again).
 
-## Registering a workflow
-
-After the release (tag `vX.Y.Z` equal to `docker_image.tag`, image pushed), add the workflow
-to BIOMERO's `slurm-config.ini`:
-
-```ini
-[WORKFLOWS]
-<key>=<key>
-<key>_repo=https://github.com/<org>/<repo>/tree/vX.Y.Z
-<key>_image=<docker org>/<docker name>
-```
-
 ## Older deployments
 
 BIOMERO versions that only read `descriptor.json` (BIAFLOWS, `cytomine-0.1`) call the

@@ -126,9 +126,7 @@ Tag `vX.Y.Z` equal to `docker_image.tag` in `config.yaml`; `.github/workflows/do
 builds the image and, when its `PUBLISH` is `"true"` (set when the workflow repository is created
 with a registry), pushes it to the registry in `docker_image.org` (Docker Hub, or e.g.
 `quay.io/<org>`) with the repository's Actions secrets (`REGISTRY_USERNAME`, `REGISTRY_TOKEN`; or
-`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`). Once the image is published, register the workflow with
-the Slurm client: see
-[`biomero-contract.md`](.claude/skills/create-bilayers-container/references/biomero-contract.md#registering-a-workflow).
+`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`).
 
 ## Use of AI
 
