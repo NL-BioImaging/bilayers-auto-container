@@ -336,3 +336,6 @@ Each part needs the user's explicit request; a workflow repository is complete w
   missing. The user adds the secrets (repository or organization secrets, not environment
   secrets); never ask for or handle the credentials. Check the run and that the tag is in the
   registry.
+
+Registering the workflow in BIOMERO is not part of this procedure; if the user asks for it
+separately, see `references/biomero-contract.md`, "Registering a workflow (optional)".
