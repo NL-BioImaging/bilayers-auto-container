@@ -113,11 +113,17 @@ commit unless asked). It gets:
   where to get it (and the `container` test skips when it is absent). Synthetic data is not
   stored: the test generates it with the same settings.
 - `.github/workflows/ci.yml` (validate + pytest; `actions/setup-python` with `cache: pip` needs
-  `cache-dependency-path: requirements-dev.txt`) and the template's `docker-image.yml`, which
-  builds the image on each release. Set its `PUBLISH` to `"true"` only when the user gave a
-  registry in step 1 (it then pushes to `docker_image.org`); otherwise leave `"false"`.
-- `.gitignore`, `.dockerignore`, and a `README.md` describing the workflow, its parameters,
-  outputs and how to run it. Directly under its title, a generated-with notice, e.g.:
+  `cache-dependency-path: requirements-dev.txt`).
+- **Everything in the template's `workflow-files/`, copied verbatim to the repository root**
+  (keep the paths): `.github/workflows/release.yml`, the Release workflow (step 8), and
+  `.claude/skills/`, the skills for working on the generated repository (`update-workflow`:
+  change and verify it; `release-workflow`: release a version). In the copied `release.yml`,
+  set `PUBLISH` to `"true"` only when the user gave a registry in step 1 (it then pushes to
+  `docker_image.org`); otherwise leave `"false"`. Change nothing else in these files; improve
+  them in the template instead.
+- `.gitignore`, `.dockerignore` (with at least `.git`, `.github`, `.claude` and `tests`), and a
+  `README.md` describing the workflow, its parameters, outputs, how to run it and how to release
+  it (the Release workflow). Directly under its title, a generated-with notice, e.g.:
 
   > This bilayers workflow container was generated with AI assistance (<assistant>, using the
   > `create-bilayers-container` skill) using
@@ -133,7 +139,8 @@ commit unless asked). It gets:
   notice is in addition to it, not a replacement.
 - `generated-notes.md` — how the repository was created or converted (see step 6).
 
-Do not copy `src/`, `tests/`, `scripts/`, `examples/` or `.claude/`.
+Do not copy `src/`, `tests/`, `scripts/`, `examples/` or the template's own `.claude/` (this
+skill); the generated repository's skills come from `workflow-files/.claude/`.
 
 **Always remove any existing `descriptor.json` (and `descriptor.yaml`)** after drafting
 `config.yaml` from it (`git rm` when adapting in place). The Slurm client looks for `descriptor.json`,
@@ -166,7 +173,8 @@ Draft it from the source (see source types), then go through every field:
   when the tool is called through its CLI.
 - `exec_function.cli_command`: the tool command inside the container (not `wrapper.py`).
 - `citations` (name, DOI, license, description of the actual tool) and `docker_image`
-  (org, name, `tag` = the release tag, platform) — these feed the RO-Crate and the Slurm client.
+  (org, name, `tag`, platform) — these feed the RO-Crate and the Slurm client. Set `tag` to
+  `"v1.0.0"` (the first release); afterwards only the Release workflow changes it.
   `org` is the registry namespace the image is published to, with the registry host for any
   registry but Docker Hub (e.g. `quay.io/<org>`): the Slurm client pulls
   `docker://<org>/<name>:<tag>`. When the user gave no registry, use a placeholder namespace
@@ -332,15 +340,20 @@ image; that is step 8.
 
 Each part needs the user's explicit request; a workflow repository is complete without them.
 
-- **Release:** a release tag `vX.Y.Z` matching `docker_image.tag`.
-- **Build and publish the image:** `.github/workflows/docker-image.yml` builds the image on each
-  release. Only with `PUBLISH: "true"` (a registry given in step 1) it also pushes
-  `<org>/<name>:vX.Y.Z` (and `latest`), logging in to the registry host in `docker_image.org`
-  (Docker Hub when there is none) with the repository's Actions secrets `REGISTRY_USERNAME`/
-  `REGISTRY_TOKEN` (or `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`); it fails clearly when they are
-  missing. The user adds the secrets (repository or organization secrets, not environment
-  secrets); never ask for or handle the credentials. Check the run and that the tag is in the
-  registry.
+Follow the generated repository's `release-workflow` skill
+(`workflow-files/.claude/skills/release-workflow/SKILL.md`). In short: run its Release workflow
+(`gh workflow run release.yml -f version=vX.Y.Z`, `v1.0.0` for the first release), which, in
+this order, sets `docker_image.tag` in `config.yaml` to the version and commits it, validates
+and tests it, builds the image and, only with `PUBLISH: "true"` (a registry given in step 1),
+pushes `<org>/<name>:vX.Y.Z` (and `latest`); only then it pushes the commit, the tag and the
+GitHub release. The Slurm client reads `config.yaml` at the tag, so a tag never exists without
+its image. Never tag, release or edit `docker_image.tag` by hand.
+
+Publishing logs in to the registry host in `docker_image.org` (Docker Hub when there is none)
+with the repository's Actions secrets `REGISTRY_USERNAME`/`REGISTRY_TOKEN` (or
+`DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`); it fails clearly when they are missing. The user adds
+the secrets (repository or organization secrets, not environment secrets); never ask for or
+handle the credentials. Check the run, the release, and that the tag is in the registry.
 
 Registering the workflow in BIOMERO is not part of this procedure; if the user asks for it
 separately, see `references/biomero-contract.md`, "Registering a workflow (optional)".

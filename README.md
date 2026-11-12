@@ -122,11 +122,20 @@ cannot be checked out on Windows. Update them with `python scripts/sync_vendor.p
 
 ## Release
 
-Tag `vX.Y.Z` equal to `docker_image.tag` in `config.yaml`; `.github/workflows/docker-image.yml`
-builds the image and, when its `PUBLISH` is `"true"` (set when the workflow repository is created
-with a registry), pushes it to the registry in `docker_image.org` (Docker Hub, or e.g.
-`quay.io/<org>`) with the repository's Actions secrets (`REGISTRY_USERNAME`, `REGISTRY_TOKEN`; or
-`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`).
+`workflow-files/` holds the files copied verbatim into every generated workflow repository:
+the Release workflow (`.github/workflows/release.yml`) and the generated repository's own
+Claude Code skills (`.claude/skills/`: `update-workflow` and `release-workflow`). They are not
+used by the template itself; change them here so new workflows get the change.
+
+A workflow repository is released by running its **Release** workflow with a version
+(`gh workflow run release.yml -f version=vX.Y.Z`). In this order, it sets `docker_image.tag` in
+`config.yaml` to the version and commits it, validates and tests it, builds the image and, when
+its `PUBLISH` is `"true"` (set when the workflow repository is created with a registry), pushes
+it to the registry in `docker_image.org` (Docker Hub, or e.g. `quay.io/<org>`) with the
+repository's Actions secrets (`REGISTRY_USERNAME`, `REGISTRY_TOKEN`; or `DOCKERHUB_USERNAME`,
+`DOCKERHUB_TOKEN`); only then it pushes the commit, the tag and the GitHub release. The Slurm
+client reads `config.yaml` at the tag, so the tag, `docker_image.tag` and the image always agree,
+and a tag never exists before its image.
 
 ## Use of AI
 

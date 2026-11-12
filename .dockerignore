@@ -5,3 +5,4 @@ tests
 .claude
 **/__pycache__
 *.egg-info
+workflow-files
