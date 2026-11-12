@@ -55,7 +55,7 @@ jobs:
             exit 1
           fi
           case "$VERSION" in *-*) echo "PRERELEASE=true" >> "$GITHUB_ENV" ;; *) echo "PRERELEASE=false" >> "$GITHUB_ENV" ;; esac
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Version not released yet
@@ -92,7 +92,7 @@ jobs:
           host = image["org"].split("/")[0]
           print(f"registry={host if '.' in host or ':' in host else ''}")
           PY
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -116,13 +116,13 @@ jobs:
             echo "::error::PUBLISH is true but the REGISTRY_* (or DOCKERHUB_*) secrets are missing"
             exit 1
           fi
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         if: env.PUBLISH == 'true'
         with:
           registry: ${{ steps.image.outputs.registry }}
           username: ${{ env.REGISTRY_USERNAME }}
           password: ${{ env.REGISTRY_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           # the checked-out folder with the version commit; the default (git) context would
           # build the pushed branch, without the new docker_image.tag

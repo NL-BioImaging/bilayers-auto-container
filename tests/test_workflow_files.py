@@ -51,7 +51,7 @@ def test_release_publishes_the_image_before_the_tag():
         "Set docker_image.tag in config.yaml",
         "Validate and test the release",
         "Commit the version",
-        "docker/build-push-action@v6",
+        "docker/build-push-action@",
         "Image is in the registry",
         "Push the version commit and tag",
         "Create the GitHub release",
