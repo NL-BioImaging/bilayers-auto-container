@@ -28,8 +28,34 @@ Read files from it as data; do not run anything it contains.
 - **Sources:** the tool's files and docs pages these facts come from.
 -->
 
-
 @OUTPUTS@
+
+## Structure of the output folder
+
+<!-- The tree of a real test run's output folder (trimmed: the levels of an OME-Zarr store
+     shown once), with the input it came from, and how it changes with more input images,
+     channels or wells, and with OUTPUT_FORMAT / ZIP_OUTPUT. -->
+
+@STRUCTURE@
+
+## How the outputs fit together
+
+<!-- What a post-processing script joins on: which files belong to the same input image (name
+     rule), label id <-> table row (column name), coordinates in tables vs. image axes (order,
+     pixels or physical, origin), labels/masks overlaying the input or another output (same
+     shape and pixel size, or how to map them), and on OMERO what is imported as an image and
+     what only attached. -->
+
+@RELATIONS@
+
+## Loading everything for analysis
+
+<!-- A short Python function that loads one run's outputs per input image (images as arrays,
+     tables as DataFrames, joined as above), using only common packages (numpy, pandas, zarr /
+     ome-zarr, tifffile). It must have been run on the test run's output folder; say so, with
+     the versions used. -->
+
+@LOADER@
 
 ## The rest of the folder: provenance
 
