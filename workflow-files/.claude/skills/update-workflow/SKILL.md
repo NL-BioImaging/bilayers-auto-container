@@ -15,6 +15,8 @@ This repository was generated from
   the arguments, converts images, runs the tool and writes the RO-Crate; do not reimplement that;
 - `Dockerfile` — the template's, with the tool layer between `# >>> tool layer` and
   `# <<< tool layer`;
+- `run.sh` — runs the image on a folder of images without BIOMERO or Slurm (Docker, Podman or
+  Apptainer); it reads the image from `docker_image` and has the input and output `cli_tag`s;
 - `tests/` (+ `pytest.ini`), `requirements-dev.txt`, CI and the Release workflow.
 
 `bilayers_auto` itself is installed from GitHub into the image; fix generic behaviour (conversion,
@@ -37,6 +39,8 @@ parameters.
   no network, `HOME` or shell needed at run time.
 - No `descriptor.json`/`descriptor.yaml` (the Slurm client would prefer it over `config.yaml`).
 - `.dockerignore` keeps `.claude`, `.git`, `.github` and `tests` out of the image.
+- Keep `run.sh` (its input/output flags) and the README's **Run it yourself** section (flags,
+  parameter table, `params.yaml` example) in step with `config.yaml`.
 
 ## Verify
 
@@ -52,6 +56,8 @@ Install the test tools in a venv: `pip install -r requirements-dev.txt`. Docker 
    `--synthetic ...` settings in `tests/test_workflow.py`), `--param name=value` as needed and
    `--keep <folder>` to inspect `<job>/data/out`. Outputs must match the expected results; find
    out why before changing a tolerance, and never loosen one only to pass.
+5. `./run.sh <test input> <scratch output>` on that image (Git Bash on Windows) runs and writes
+   the same outputs.
 
 Testing with images means running this container, not deploying BIOMERO, OMERO or Slurm (only
 on the user's request). Then update `generated-notes.md` (what changed, the test data and

@@ -105,6 +105,15 @@ commit unless asked). It gets:
 - `config.yaml` — written from the source (step 3); the template has none.
 - `wrapper.py` — the template's root `wrapper.py`, with the tool hook (step 4).
 - `Dockerfile` — the template's root `Dockerfile` with the tool layer filled in (step 5).
+- `run.sh` (executable: `git update-index --chmod=+x run.sh`; `.gitattributes` with
+  `*.sh text eol=lf`, so Windows checkouts keep it runnable) — runs the image on a folder of
+  images without BIOMERO or Slurm, with Docker, Podman or Apptainer/Singularity. Copy
+  [references/run.sh](references/run.sh) and fill in `@WORKFLOW_NAME@`, `@IN_FLAG@` and
+  `@OUT_FLAG@` (the `cli_tag`s of the image input and of the output folder, the output's or the
+  `output_dir_set` parameter's); it reads the image from `docker_image` in `config.yaml`, so
+  releases need no change to it. For more than one folder input or output, add a mount and
+  flag for each the same way. Check it with `./run.sh <test input> <scratch out>` on the built
+  image (step 6).
 - `requirements-dev.txt` — `bilayers-auto-container[test] @ git+https://github.com/NL-BioImaging/bilayers-auto-container.git`.
 - `tests/test_workflow.py` (+ `pytest.ini` with `pythonpath = tests` and the `container`
   marker) — see step 6.
@@ -123,7 +132,8 @@ commit unless asked). It gets:
   them in the template instead.
 - `.gitignore`, `.dockerignore` (with at least `.git`, `.github`, `.claude` and `tests`), and a
   `README.md` describing the workflow, its parameters, outputs, how to run it and how to release
-  it (the Release workflow). Directly under its title, a generated-with notice, e.g.:
+  it (the Release workflow). The README has a **Run it yourself** section (see below).
+  Directly under its title, a generated-with notice, e.g.:
 
   > This bilayers workflow container was generated with AI assistance (<assistant>, using the
   > `create-bilayers-container` skill) using
@@ -138,6 +148,29 @@ commit unless asked). It gets:
   Keep the tool's own credit (authors, citation/DOI, license) in the README as well; the
   notice is in addition to it, not a replacement.
 - `generated-notes.md` — how the repository was created or converted (see step 6).
+
+The README's **Run it yourself** section, filled in for the workflow (real flags, a parameter
+example that makes a meaningful run, the actual image name):
+
+- **Get the image**: `docker pull <org>/<name>:<tag>` when it is published; otherwise build it,
+  `docker build -t <org>/<name>:<tag> .` (the name `run.sh` reads from `config.yaml`).
+- **With the script**: `./run.sh <input folder> <output folder> [--<param>=<value> ...]`, with
+  `RUNTIME=podman|apptainer|singularity` and `IMAGE=...` (an image or a `.sif`); on Windows
+  from Git Bash. `./run.sh --help` lists these.
+- **Without the script**, the commands it runs:
+  `docker run --rm -v <in>:/data/in -v <out>:/data/out <image> <input flag>=/data/in <output flag>=/data/out --<param>=<value>`
+  (Podman the same; add `:Z` to the volumes on SELinux hosts) and
+  `apptainer run --bind <in>:/data/in,<out>:/data/out docker://<image> <same arguments>`.
+- **Parameters**: a table of flag, type, default and meaning (from `config.yaml`); left-out
+  parameters take their defaults; or all in a file, `--params params.yaml` (`{name: value}`,
+  with an example for this workflow).
+- **Inputs and outputs**: one image per file or OME-Zarr store in the input folder, the formats
+  accepted, and what the output folder holds (the tool's outputs, converted only when needed,
+  and the RO-Crate `ro-crate-metadata.json`, `config.yaml`, `parameters.yaml`).
+- **Settings**: the environment overrides (`OUTPUT_FORMAT`, `ZIP_OUTPUT`, `RO_CRATE`,
+  `RO_CRATE_INPUT`, ...; see [references/container-contract.md](references/container-contract.md)),
+  set in the environment of `run.sh` (e.g. `ZIP_OUTPUT=true ./run.sh ...`), or passed with
+  `-e NAME=value` (Docker/Podman) or `--env NAME=value` (Apptainer).
 
 Do not copy `src/`, `tests/`, `scripts/`, `examples/` or the template's own `.claude/` (this
 skill); the generated repository's skills come from `workflow-files/.claude/`.
@@ -299,6 +332,9 @@ All of these must pass before the workflow is reported as done:
    output, no copy of the input images (by default), and, only when zipping is enabled, a
    single uncompressed `<algorithm_folder_name>.zip` containing all of that. A failing build or run is fixed in the Dockerfile/config/wrapper,
    not skipped.
+5. `./run.sh <test input> <scratch output>` (Git Bash on Windows) on the image built in check 4,
+   with the parameters used there: it runs and writes the same outputs. This checks the script
+   and the README's run instructions; check the README's commands match it.
 
 Ask before pushing images or the repository; publishing the image is optional (step 8). Report what was verified and what was not
 (e.g. only synthetic data, GPU untested).

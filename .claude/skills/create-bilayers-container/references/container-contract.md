@@ -58,4 +58,6 @@ docker run --rm -v <job>/data:/data <image> --params /data/params.yaml
 ```
 
 Podman takes the same arguments (add `:Z` to the volume on SELinux hosts).
-`bilayers-auto container-test` builds the image and runs it this way.
+`bilayers-auto container-test` builds the image and runs it this way. Each workflow repository's
+`run.sh` (from [run.sh](run.sh)) does it for any input and output folder, with Docker, Podman or
+Apptainer/Singularity, staging in a temporary folder (`WORKDIR`).
