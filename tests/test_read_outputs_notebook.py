@@ -1,10 +1,9 @@
 """The read-outputs notebook template: up to date with its generator, and its cells run on
-container-like output folders (OME-Zarr 0.4, 0.5 and 0.6, TIFF, tables, RO-Crate, zipped)."""
+container-like output folders (OME-Zarr 0.4, 0.5 and 0.6, TIFF, tables, RO-Crate)."""
 
 import json
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 import pytest
@@ -117,15 +116,3 @@ def test_notebook_reads_an_output_folder(tmp_path, version):
     assert ns["run"]["name"] == "example run"
     assert ns["parameters"] == {"segmentation": {"sigma": 2.0}}
     assert ns["summary"] == {"img1_objects.tsv": 2}
-
-
-def test_notebook_reads_a_zipped_output(tmp_path):
-    source = _output(tmp_path / "source", "0.5")
-    out = tmp_path / "out"
-    out.mkdir()
-    with zipfile.ZipFile(out / "example.zip", "w", zipfile.ZIP_STORED) as archive:
-        for path in source.rglob("*"):
-            archive.write(path, path.relative_to(source))
-    ns = _run_cells(out)
-    assert ns["OUTPUT"] == out / "example"
-    assert len(ns["images"]) == 4

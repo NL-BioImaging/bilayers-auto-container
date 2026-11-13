@@ -357,7 +357,7 @@ source and was not seen in a run. The skill is for post-processing and image ana
 outputs, so also fill in, from the kept output folder:
 
 - `@STRUCTURE@`: the output folder's tree (OME-Zarr levels shown once) and how it scales with
-  more images, channels or wells, `OUTPUT_FORMAT` and `ZIP_OUTPUT`;
+  more images, channels or wells and with `OUTPUT_FORMAT` (for the default, unzipped output);
 - `@RELATIONS@`: how the outputs join (files of one input image, label id ↔ table row,
   table coordinates ↔ image axes, overlaying labels on the input) and what OMERO imports;
 - `@LOADER@`: a Python loader for one run's outputs, run on that output folder before it is
@@ -374,8 +374,9 @@ Then write `notebooks/read-outputs.ipynb` from
 - `@ANALYSIS@`: a short example analysis of this workflow's outputs, e.g. objects per image
   from the label images joined with the table, or an overlay of labels on the input.
 
-Its generic cells read OME-Zarr 0.4, 0.5 and 0.6, TIFF, CSV/TSV, the RO-Crate and zipped
-outputs. Run all its cells on the kept output folder (e.g. `jupyter nbconvert --to notebook
+Its generic cells read an unzipped output folder (the default; a zipped run is extracted
+first): OME-Zarr 0.4, 0.5 and 0.6, TIFF, CSV/TSV and the RO-Crate. The loader works on that
+folder too. Run all its cells on the kept output folder (e.g. `jupyter nbconvert --to notebook
 --execute`) and fix what fails. Then commit it with its outputs cleared. Change the generic
 cells only in the template (`scripts/make_read_outputs_notebook.py`, then run it).
 

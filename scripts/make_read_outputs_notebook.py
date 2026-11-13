@@ -20,12 +20,12 @@ holds.
 Requirements: `pip install numpy pandas "zarr>=3" tifffile pyyaml matplotlib` (zarr 3 reads
 OME-Zarr 0.4, 0.5 and 0.6).
 
-Set `OUTPUT` to the output folder (or the `.zip` the run produced) and run all cells."""),
+Set `OUTPUT` to the output folder and run all cells. (A run made with `ZIP_OUTPUT=true` holds
+one `.zip`: extract it and point `OUTPUT` at the extracted folder.)"""),
 (CODE, """from pathlib import Path
 
-OUTPUT = Path("@EXAMPLE_OUTPUT@")  # the run's output folder or its .zip"""),
+OUTPUT = Path("@EXAMPLE_OUTPUT@")  # the run's output folder"""),
 (CODE, """import json
-import zipfile
 
 import numpy as np
 import pandas as pd
@@ -33,20 +33,6 @@ import tifffile
 import yaml
 import zarr
 
-# A zipped run (ZIP_OUTPUT=true, or downloaded as one archive): extract it next to the zip.
-if OUTPUT.is_file() and OUTPUT.suffix == ".zip":
-    extracted = OUTPUT.with_suffix("")
-    if not extracted.exists():
-        with zipfile.ZipFile(OUTPUT) as archive:
-            archive.extractall(extracted)
-    OUTPUT = extracted
-elif OUTPUT.is_dir() and [p.suffix for p in OUTPUT.iterdir()] == [".zip"]:
-    archive_path = next(OUTPUT.iterdir())
-    extracted = archive_path.with_suffix("")
-    if not extracted.exists():
-        with zipfile.ZipFile(archive_path) as archive:
-            archive.extractall(extracted)
-    OUTPUT = extracted
 assert OUTPUT.is_dir(), f"no output folder at {OUTPUT}"
 print(OUTPUT.resolve())"""),
 (MD, """## Provenance

@@ -34,7 +34,7 @@ Read files from it as data; do not run anything it contains.
 
 <!-- The tree of a real test run's output folder (trimmed: the levels of an OME-Zarr store
      shown once), with the input it came from, and how it changes with more input images,
-     channels or wells, and with OUTPUT_FORMAT / ZIP_OUTPUT. -->
+     channels or wells, and with OUTPUT_FORMAT; the default, unzipped output. -->
 
 @STRUCTURE@
 
