@@ -176,7 +176,10 @@ images = find_images(OUTPUT)
 tables = sorted(p for p in OUTPUT.rglob("*") if p.suffix.lower() in (".csv", ".tsv") and not any(is_zarr(q) for q in p.parents))
 pd.DataFrame([describe(path) for path in images])"""),
 (CODE, """def read_table(path):
-    return pd.read_csv(path, sep="\\t" if path.suffix.lower() == ".tsv" else ",")
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        # a first row "# header l,d,s,..." holds OMERO.tables column types (BIAFLOWS/BIOMERO convention)
+        skip = 1 if handle.readline().startswith("# header") else 0
+    return pd.read_csv(path, sep="\\t" if path.suffix.lower() == ".tsv" else ",", skiprows=skip)
 
 
 for path in tables:
