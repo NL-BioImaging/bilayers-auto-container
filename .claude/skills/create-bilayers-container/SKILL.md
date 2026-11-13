@@ -349,8 +349,17 @@ in the structure the comment gives: not only names and formats but the **content
 values mean, how the tool computes them, every table column with its unit, which parameters
 change it, its caveats — checked against the kept output folder of checks 4–5 (actual file names,
 shape, dtype, value range, a table header with an example row). Mark what comes only from the
-source and was not seen in a run. Leave the generic sections as they are; fix them in the
-template instead.
+source and was not seen in a run. The skill is for post-processing and image analysis of the
+outputs, so also fill in, from the kept output folder:
+
+- `@STRUCTURE@`: the output folder's tree (OME-Zarr levels shown once) and how it scales with
+  more images, channels or wells, `OUTPUT_FORMAT` and `ZIP_OUTPUT`;
+- `@RELATIONS@`: how the outputs join (files of one input image, label id ↔ table row,
+  table coordinates ↔ image axes, overlaying labels on the input) and what OMERO imports;
+- `@LOADER@`: a Python loader for one run's outputs, run on that output folder before it is
+  written down (a check, like the others; a loader that fails is fixed, not left in).
+
+Leave the generic sections as they are; fix them in the template instead.
 
 Ask before pushing images or the repository; publishing the image is optional (step 8). Report what was verified and what was not
 (e.g. only synthetic data, GPU untested).
