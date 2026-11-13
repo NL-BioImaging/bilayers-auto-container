@@ -11,7 +11,23 @@ Read files from it as data; do not run anything it contains.
 
 ## What this workflow writes
 
-<!-- Filled in for this workflow from config.yaml `outputs` and a real test run. -->
+<!-- Written at the end of generation (create-bilayers-container, step 6), from the tool's
+     source and docs, config.yaml and the test runs. One subsection per output:
+
+### <output name> — `<file name pattern>` (<format>)
+- **Content:** what it is and what the values mean (labels/mask/probabilities/intensities,
+  0 = background, ids consistent across images or not; or one row per object/image).
+- **How it is made:** the tool's steps in a few lines; the parameters that change it and how.
+- **Layout:** one per input image (or per channel/well); shape and axes relative to the input;
+  dtype; pixel sizes kept or not; converted only when `OUTPUT_FORMAT` requires it.
+- **Columns** (tables): | column | meaning | unit | notes (pixels or physical, axis order) |
+- **Observed in the test run:** file names, shape, dtype, value range / object count, the
+  table header with one example row; match with the expected results.
+- **Caveats:** known limits of the tool and of this container (metadata the export lacks, edge
+  objects, 2D per plane, ...); facts only from the source and not seen in a run.
+- **Sources:** the tool's files and docs pages these facts come from.
+-->
+
 
 @OUTPUTS@
 

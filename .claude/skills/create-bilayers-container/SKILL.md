@@ -83,7 +83,8 @@ work. (Podman also works: `--runtime podman` below.) Use a venv with the templat
   `git -c core.longpaths=true restore --source=HEAD -- <paths you need>` or raw downloads.
 - Identify: what the tool does; how it is invoked (CLI, Python API, pipeline file + headless
   runner, BIAFLOWS `wrapper.py`, Fractal task, Galaxy tool/workflow); its inputs (image formats,
-  dimensionality, channels), outputs (labels, images, tables), and parameters (names, types,
+  dimensionality, channels), outputs (labels, images, tables, and what their values and columns
+  mean and how they are computed, for the `workflow-outputs` skill in step 6), and parameters (names, types,
   defaults, ranges, choices); install method and versions; license; citation/DOI. Prefer the
   tool's own docs, `--help` text in its source, `descriptor.json`/`config.yaml`/`Dockerfile`,
   `__FRACTAL_MANIFEST__.json` or a Fractal workflow JSON, Galaxy tool XML / `.ga` if present. Pick the version to pin (the
@@ -150,14 +151,8 @@ commit unless asked). It gets:
 - `generated-notes.md` — how the repository was created or converted (see step 6).
 - `.claude/skills/workflow-outputs/SKILL.md` — the skill for the container's output data, next
   to the `update-workflow` (development) and `release-workflow` skills from `workflow-files/`.
-  Copy [references/outputs-skill.md](references/outputs-skill.md), fill in `@WORKFLOW_NAME@`,
-  and replace `@OUTPUTS@` (and its comment) with this workflow's outputs, taken from
-  `config.yaml` `outputs` and the outputs of a real test run (step 6): each file or folder
-  pattern (e.g. `<input name>_labels.ome.zarr`, `<input name>_objects_count.tsv`), its format,
-  what it holds (label values, image channels and dtype, table columns with units), how it
-  relates to the input (one per input image, same dimensions or not), and what is converted
-  only under which `OUTPUT_FORMAT`. Leave the generic sections as they are; fix them in the
-  template instead.
+  Written at the end of step 6, from
+  [references/outputs-skill.md](references/outputs-skill.md).
 
 The README's **Run it yourself** section, filled in for the workflow (real flags, a parameter
 example that makes a meaningful run, the actual image name):
@@ -344,8 +339,18 @@ All of these must pass before the workflow is reported as done:
    not skipped.
 5. `./run.sh <test input> <scratch output>` (Git Bash on Windows) on the image built in check 4,
    with the parameters used there: it runs and writes the same outputs. This checks the script
-   and the README's run instructions; check the README's commands match it. Check the
-   `workflow-outputs` skill's output list against that output folder.
+   and the README's run instructions; check the README's commands match it.
+
+Then write `.claude/skills/workflow-outputs/SKILL.md`: this is when everything about the outputs
+is known (the tool's source and docs from step 1, `config.yaml`, the tool hook, the test runs),
+and it is lost once generation ends. Copy [references/outputs-skill.md](references/outputs-skill.md),
+fill in `@WORKFLOW_NAME@` and replace `@OUTPUTS@` and its comment with one subsection per output,
+in the structure the comment gives: not only names and formats but the **content** — what the
+values mean, how the tool computes them, every table column with its unit, which parameters
+change it, its caveats — checked against the kept output folder of checks 4–5 (actual file names,
+shape, dtype, value range, a table header with an example row). Mark what comes only from the
+source and was not seen in a run. Leave the generic sections as they are; fix them in the
+template instead.
 
 Ask before pushing images or the repository; publishing the image is optional (step 8). Report what was verified and what was not
 (e.g. only synthetic data, GPU untested).
