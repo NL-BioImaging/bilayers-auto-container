@@ -148,6 +148,16 @@ commit unless asked). It gets:
   Keep the tool's own credit (authors, citation/DOI, license) in the README as well; the
   notice is in addition to it, not a replacement.
 - `generated-notes.md` — how the repository was created or converted (see step 6).
+- `.claude/skills/workflow-outputs/SKILL.md` — the skill for the container's output data, next
+  to the `update-workflow` (development) and `release-workflow` skills from `workflow-files/`.
+  Copy [references/outputs-skill.md](references/outputs-skill.md), fill in `@WORKFLOW_NAME@`,
+  and replace `@OUTPUTS@` (and its comment) with this workflow's outputs, taken from
+  `config.yaml` `outputs` and the outputs of a real test run (step 6): each file or folder
+  pattern (e.g. `<input name>_labels.ome.zarr`, `<input name>_objects_count.tsv`), its format,
+  what it holds (label values, image channels and dtype, table columns with units), how it
+  relates to the input (one per input image, same dimensions or not), and what is converted
+  only under which `OUTPUT_FORMAT`. Leave the generic sections as they are; fix them in the
+  template instead.
 
 The README's **Run it yourself** section, filled in for the workflow (real flags, a parameter
 example that makes a meaningful run, the actual image name):
@@ -334,7 +344,8 @@ All of these must pass before the workflow is reported as done:
    not skipped.
 5. `./run.sh <test input> <scratch output>` (Git Bash on Windows) on the image built in check 4,
    with the parameters used there: it runs and writes the same outputs. This checks the script
-   and the README's run instructions; check the README's commands match it.
+   and the README's run instructions; check the README's commands match it. Check the
+   `workflow-outputs` skill's output list against that output folder.
 
 Ask before pushing images or the repository; publishing the image is optional (step 8). Report what was verified and what was not
 (e.g. only synthetic data, GPU untested).

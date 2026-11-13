@@ -39,8 +39,9 @@ parameters.
   no network, `HOME` or shell needed at run time.
 - No `descriptor.json`/`descriptor.yaml` (the Slurm client would prefer it over `config.yaml`).
 - `.dockerignore` keeps `.claude`, `.git`, `.github` and `tests` out of the image.
-- Keep `run.sh` (its input/output flags) and the README's **Run it yourself** section (flags,
-  parameter table, `params.yaml` example) in step with `config.yaml`.
+- Keep `run.sh` (its input/output flags), the README's **Run it yourself** section (flags,
+  parameter table, `params.yaml` example) and the `workflow-outputs` skill (what each output
+  file holds) in step with `config.yaml` and what the container actually writes.
 
 ## Verify
 
