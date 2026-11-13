@@ -57,6 +57,10 @@ Read files from it as data; do not run anything it contains.
 
 @LOADER@
 
+The notebook `notebooks/read-outputs.ipynb` does all of this for a run's output folder:
+provenance, the folder tree, every image (OME-Zarr 0.4, 0.5 and 0.6, TIFF) and table, a first
+look, and this loader with an example analysis. Start from it for post-processing.
+
 ## The rest of the folder: provenance
 
 The output folder is a [Workflow RO-Crate](https://w3id.org/workflowhub/workflow-ro-crate/):
@@ -85,9 +89,15 @@ params = yaml.safe_load(open("out/parameters.yaml"))
 
 ## Loading the images
 
-- **OME-Zarr** (`*.ome.zarr`, `*.zarr` folders): `ome-zarr-py` / `zarr`
-  (the `multiscales` metadata lists the resolution levels, full resolution first by its
-  `path`, e.g. `0` or `s0`, with the axes and pixel sizes), napari (`napari-ome-zarr`), Fiji (OME-Zarr reader / BigDataViewer).
+- **OME-Zarr** (`*.ome.zarr`, `*.zarr` folders), version 0.4 (Zarr v2), 0.5 or 0.6 (Zarr v3,
+  metadata under `ome` in `zarr.json`; `OMEZARR_VERSION` picks the one written): read with
+  `zarr>=3`. The `multiscales` metadata lists the resolution levels, full resolution first by
+  its `path`, e.g. `0` or `s0`. In 0.4 and 0.5 the axes are in `multiscales[].axes` and the
+  pixel sizes in each dataset's `scale`. In 0.6 (RFC-5) the axes are in
+  `multiscales[].coordinateSystems[].axes`, and each dataset has one transformation, a scale or
+  a `sequence`, with `input`/`output`. `ome-zarr-py` does not read 0.6 yet; the notebook's
+  `open_image` reads all three. Viewers: napari (`napari-ome-zarr`), Fiji (OME-Zarr reader /
+  BigDataViewer).
 - **TIFF / OME-TIFF**: `tifffile.imread(...)` (and `tifffile.TiffFile(...).ome_metadata`), Fiji.
 - **Label images** (integer, one value per object, 0 = background): count objects with
   `len(numpy.unique(labels)) - 1`, measure them with `skimage.measure.regionprops_table`.

@@ -131,7 +131,7 @@ commit unless asked). It gets:
   set `PUBLISH` to `"true"` only when the user gave a registry in step 1 (it then pushes to
   `docker_image.org`); otherwise leave `"false"`. Change nothing else in these files; improve
   them in the template instead.
-- `.gitignore`, `.dockerignore` (with at least `.git`, `.github`, `.claude` and `tests`), and a
+- `.gitignore`, `.dockerignore` (with at least `.git`, `.github`, `.claude`, `notebooks` and `tests`), and a
   `README.md` describing the workflow, its parameters, outputs, how to run it and how to release
   it (the Release workflow). The README has a **Run it yourself** section (see below).
   Directly under its title, a generated-with notice, e.g.:
@@ -153,6 +153,10 @@ commit unless asked). It gets:
   to the `update-workflow` (development) and `release-workflow` skills from `workflow-files/`.
   Written at the end of step 6, from
   [references/outputs-skill.md](references/outputs-skill.md).
+- `notebooks/read-outputs.ipynb` — a notebook that reads a run's output folder (provenance,
+  folder tree, every image and table, a first look, and this workflow's outputs ready for
+  analysis). Written at the end of step 6, from
+  [references/read-outputs.ipynb](references/read-outputs.ipynb).
 
 The README's **Run it yourself** section, filled in for the workflow (real flags, a parameter
 example that makes a meaningful run, the actual image name):
@@ -360,6 +364,20 @@ outputs, so also fill in, from the kept output folder:
   written down (a check, like the others; a loader that fails is fixed, not left in).
 
 Leave the generic sections as they are; fix them in the template instead.
+
+Then write `notebooks/read-outputs.ipynb` from
+[references/read-outputs.ipynb](references/read-outputs.ipynb). Fill in the placeholders:
+
+- `@WORKFLOW_NAME@`;
+- `@EXAMPLE_OUTPUT@`: the output folder path to start from, e.g. `out`;
+- `@LOADER@`: the skill's tested loader, called on `OUTPUT`;
+- `@ANALYSIS@`: a short example analysis of this workflow's outputs, e.g. objects per image
+  from the label images joined with the table, or an overlay of labels on the input.
+
+Its generic cells read OME-Zarr 0.4, 0.5 and 0.6, TIFF, CSV/TSV, the RO-Crate and zipped
+outputs. Run all its cells on the kept output folder (e.g. `jupyter nbconvert --to notebook
+--execute`) and fix what fails. Then commit it with its outputs cleared. Change the generic
+cells only in the template (`scripts/make_read_outputs_notebook.py`, then run it).
 
 Ask before pushing images or the repository; publishing the image is optional (step 8). Report what was verified and what was not
 (e.g. only synthetic data, GPU untested).

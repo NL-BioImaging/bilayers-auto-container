@@ -38,10 +38,12 @@ parameters.
   qualified `FROM` images, no `USER` or fixed UIDs, writes only to the given folders and `/tmp`,
   no network, `HOME` or shell needed at run time.
 - No `descriptor.json`/`descriptor.yaml` (the Slurm client would prefer it over `config.yaml`).
-- `.dockerignore` keeps `.claude`, `.git`, `.github` and `tests` out of the image.
+- `.dockerignore` keeps `.claude`, `.git`, `.github`, `notebooks` and `tests` out of the image.
 - Keep `run.sh` (its input/output flags), the README's **Run it yourself** section (flags,
   parameter table, `params.yaml` example) and the `workflow-outputs` skill (what each output
-  file holds) in step with `config.yaml` and what the container actually writes.
+  file holds), and `notebooks/read-outputs.ipynb` (run it on a test output after a change, and
+  commit it with its outputs cleared) in step with `config.yaml` and what the container
+  actually writes.
 
 ## Verify
 

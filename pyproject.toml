@@ -27,6 +27,8 @@ test = [
     "biomero>=2.5",
     # the example tool in config.yaml
     "bilayers-algorithms @ git+https://github.com/bilayer-containers/bilayers-algorithms.git",
+    # the read-outputs notebook template (tests/test_read_outputs_notebook.py)
+    "numpy", "pandas", "zarr>=3", "tifffile", "matplotlib",
 ]
 
 [project.scripts]
